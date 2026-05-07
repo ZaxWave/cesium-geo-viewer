@@ -97,4 +97,8 @@ python scripts/clip_beijing_central.py
 
 ## 说明
 
+<<<<<<< HEAD
 本项目适用于城市三维可视化、空间数据展示与时空分析应用场景，便于后续扩展多源影像、模型和动态专题数据。
+=======
+本项目适用于城市三维可视化、空间数据展示与时空分析应用场景，便于后续扩展多源影像、模型和动态专题数据。
+>>>>>>> 3668bb0 (Update Cesium project: refine README, add Beijing clip script, improve config, styles, imagery, terrain, and UI components)

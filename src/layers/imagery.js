@@ -10,11 +10,10 @@ export function createBingMapsLayer(key, mapStyle) {
 }
 
 // ---------- Tianditu ----------
+// DataServer XYZ format (works with UrlTemplateImageryProvider)
+// Layer: img_w=影像, vec_w=矢量, cia_w=影像注记, cva_w=矢量注记
 const TIANDITU_URL =
-  'https://t{s}.tianditu.gov.cn/{layer}_wmts?' +
-  'SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER={layer}&' +
-  'STYLE=default&TILEMATRIXSET=c&TILEMATRIX={TileMatrix}&' +
-  'TILEROW={TileRow}&TILECOL={TileCol}&FORMAT=tiles&tk={tk}';
+  'https://t{s}.tianditu.gov.cn/DataServer?T={layer}&x={x}&y={y}&l={z}&tk={tk}';
 
 const TIANDITU_SUBDOMAINS = ['0', '1', '2', '3', '4', '5', '6', '7'];
 
@@ -67,14 +66,14 @@ export const BASE_LAYERS = {
   tianditu_vec: {
     id: 'tianditu_vec',
     name: '天地图矢量',
-    factory: (c) => createTiandituLayer('vec', c.tiandituToken),
+    factory: (c) => createTiandituLayer('vec_w', c.tiandituToken),
     requiresToken: true,
     tokenKey: 'tiandituToken',
   },
   tianditu_img: {
     id: 'tianditu_img',
     name: '天地图影像',
-    factory: (c) => createTiandituLayer('img', c.tiandituToken),
+    factory: (c) => createTiandituLayer('img_w', c.tiandituToken),
     requiresToken: true,
     tokenKey: 'tiandituToken',
   },

@@ -2,7 +2,7 @@ export const CONFIG = Object.freeze({
   // API Tokens — fill in as needed
   cesiumIonToken: '',
   bingMapsKey: '',
-  tiandituToken: '',
+  tiandituToken: 'e84faf79617295254251840d50c9a98c',
   mapboxToken: '',
 
   // GeoServer endpoint
@@ -20,11 +20,11 @@ export const CONFIG = Object.freeze({
 
   // Base layers shown in switcher — comment out any you lack tokens for
   enabledBaseLayers: [
-    'osm',
     'gaode_img',
     'gaode_street',
-    'tianditu_vec',
     'tianditu_img',
+    'tianditu_vec',
+    'osm',
     'bing',
     'mapbox',
   ],

@@ -8,17 +8,19 @@ import { createWorldTerrain, createLocalTerrain } from './layers/terrain.js';
 import { createLayerSwitcher } from './ui/layerSwitcher.js';
 import { createDataPanel } from './ui/dataPanel.js';
 
-// Cesium Ion token
 if (CONFIG.cesiumIonToken) {
   Cesium.Ion.defaultAccessToken = CONFIG.cesiumIonToken;
 }
 
-// ---------- Viewer ----------
+// ---------- Initial base layer (高德影像, no token needed) ----------
+const defaultLayer = BASE_LAYERS.gaode_img;
+const initialImagery = defaultLayer.factory(CONFIG);
+
 const viewer = new Cesium.Viewer('cesiumContainer', {
+  imageryProvider: initialImagery,
   terrainProvider: CONFIG.localTerrainUrl
     ? createLocalTerrain(CONFIG.localTerrainUrl)
     : createWorldTerrain(),
-  imageryProvider: false,
   baseLayerPicker: false,
   animation: false,
   timeline: false,
@@ -27,7 +29,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 });
 
 // ---------- UI ----------
-const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS);
+const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
 const dataPanel = createDataPanel(viewer);
 
 // ---------- Camera ----------
@@ -35,6 +37,5 @@ viewer.camera.setView({
   destination: Cesium.Cartesian3.fromDegrees(116.38, 39.90, 15000),
 });
 
-// Expose for console debugging
 window.__viewer = viewer;
 window.__layerSwitcher = layerSwitcher;

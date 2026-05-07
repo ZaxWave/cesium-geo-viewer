@@ -5,46 +5,49 @@ import { createWmsLayer } from '../layers/ogc.js';
 
 let items = [];
 
-function addItem(panel, viewer, type, name, removeFn) {
-  const item = { type, name, removeFn };
-  items.push(item);
-  renderItemList(panel, viewer);
+function addItem(panel, type, name, removeFn) {
+  items.push({ type, name, removeFn });
+  renderList(panel);
 }
 
-function removeItem(panel, viewer, index) {
+function removeItem(panel, index) {
   const item = items[index];
   if (!item) return;
-  try {
-    item.removeFn();
-  } catch (e) {
-    console.warn('Remove failed:', e);
-  }
+  try { item.removeFn(); } catch (e) { console.warn(e); }
   items.splice(index, 1);
-  renderItemList(panel, viewer);
+  renderList(panel);
 }
 
-function renderItemList(panel, viewer) {
-  const listEl = panel.querySelector('.data-item-list');
+function renderList(panel) {
+  const listEl = panel.querySelector('.data-list');
   listEl.innerHTML = '';
+
   if (items.length === 0) {
-    listEl.textContent = '暂无数据';
+    listEl.innerHTML = '<div class="empty">&mdash; No data loaded &mdash;</div>';
     return;
   }
+
   items.forEach((item, i) => {
     const row = document.createElement('div');
-    row.className = 'layer-item';
+    row.className = 'item';
 
-    const label = document.createElement('span');
-    label.textContent = `[${item.type}] ${item.name}`;
-    label.title = item.name;
+    const badge = document.createElement('span');
+    badge.className = 'type-badge';
+    badge.textContent = item.type;
+    row.appendChild(badge);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.textContent = '移除';
-    removeBtn.addEventListener('click', () => removeItem(panel, viewer, i));
+    const name = document.createElement('span');
+    name.className = 'item-name';
+    name.textContent = item.name;
+    name.title = item.name;
+    row.appendChild(name);
 
-    row.appendChild(label);
-    row.appendChild(removeBtn);
+    const rm = document.createElement('button');
+    rm.className = 'btn btn-sm rm-btn';
+    rm.textContent = 'Remove';
+    rm.addEventListener('click', () => removeItem(panel, i));
+    row.appendChild(rm);
+
     listEl.appendChild(row);
   });
 }
@@ -52,16 +55,33 @@ function renderItemList(panel, viewer) {
 // ---------- Public ----------
 export function createDataPanel(viewer) {
   const panel = document.createElement('div');
-  panel.className = 'cesium-data-panel';
+  panel.className = 'data-panel glass-panel';
 
-  // --- Title ---
-  const title = document.createElement('h3');
-  title.textContent = '数据加载';
-  panel.appendChild(title);
+  // Header
+  const header = document.createElement('div');
+  header.className = 'panel-header';
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = 'Data';
+  header.appendChild(dot);
+  header.appendChild(label);
+  panel.appendChild(header);
 
-  // --- Vector section ---
-  const vecSection = document.createElement('section');
-  vecSection.innerHTML = '<h4>矢量数据 (GeoJSON / KML)</h4>';
+  // Body
+  const body = document.createElement('div');
+  body.className = 'panel-body';
+
+  // ---- Section: Vector ----
+  const vecTitle = document.createElement('div');
+  vecTitle.className = 'section-title';
+  vecTitle.textContent = 'Vector Data';
+  body.appendChild(vecTitle);
+
+  const uploadZone = document.createElement('label');
+  uploadZone.className = 'upload-zone';
+  uploadZone.innerHTML = '<span class="upload-icon">+</span> GeoJSON / KML';
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -77,83 +97,91 @@ export function createDataPanel(viewer) {
       } else {
         ds = await loadGeoJsonFromFile(viewer, file);
       }
-      if (ds) {
-        addItem(panel, viewer, '矢量', file.name, () => removeDataSource(viewer, ds));
-      }
+      if (ds) addItem(panel, 'Vector', file.name, () => removeDataSource(viewer, ds));
     } catch (e) {
-      alert('加载失败: ' + e.message);
+      alert('Load failed: ' + e.message);
     }
     fileInput.value = '';
   });
-  vecSection.appendChild(fileInput);
-  panel.appendChild(vecSection);
+  uploadZone.appendChild(fileInput);
+  body.appendChild(uploadZone);
 
-  // --- 3D Tiles section ---
-  const tilesSection = document.createElement('section');
-  tilesSection.innerHTML = '<h4>3D Tiles</h4>';
+  // ---- Section: 3D Tiles ----
+  const tileTitle = document.createElement('div');
+  tileTitle.className = 'section-title';
+  tileTitle.textContent = '3D Tiles';
+  body.appendChild(tileTitle);
 
-  const tilesUrl = document.createElement('input');
-  tilesUrl.type = 'text';
-  tilesUrl.placeholder = 'tileset.json URL';
-  tilesUrl.value = CONFIG.data.building3DTiles;
-  tilesSection.appendChild(tilesUrl);
+  const tileUrl = document.createElement('input');
+  tileUrl.className = 'input-field';
+  tileUrl.type = 'text';
+  tileUrl.placeholder = 'Tileset URL';
+  tileUrl.value = CONFIG.data.building3DTiles;
+  body.appendChild(tileUrl);
 
-  const tilesBtn = document.createElement('button');
-  tilesBtn.textContent = '加载';
-  tilesBtn.addEventListener('click', async () => {
-    const url = tilesUrl.value.trim();
+  const tileBtn = document.createElement('button');
+  tileBtn.className = 'btn btn-primary';
+  tileBtn.textContent = 'Load';
+  tileBtn.addEventListener('click', async () => {
+    const url = tileUrl.value.trim();
     if (!url) return;
     try {
       const tileset = await load3DTileset(viewer, url);
-      addItem(panel, viewer, '3DTiles', url, () => removeTileset(viewer, tileset));
+      addItem(panel, '3DTiles', url.split('/').pop() || url, () => removeTileset(viewer, tileset));
     } catch (e) {
-      alert('加载失败: ' + e.message);
+      alert('Load failed: ' + e.message);
     }
   });
-  tilesSection.appendChild(tilesBtn);
-  panel.appendChild(tilesSection);
+  body.appendChild(tileBtn);
 
-  // --- WMS section ---
-  const wmsSection = document.createElement('section');
-  wmsSection.innerHTML = '<h4>WMS 图层</h4>';
+  // ---- Section: WMS ----
+  const wmsTitle = document.createElement('div');
+  wmsTitle.className = 'section-title';
+  wmsTitle.textContent = 'WMS Layer';
+  body.appendChild(wmsTitle);
 
   const wmsUrl = document.createElement('input');
+  wmsUrl.className = 'input-field';
   wmsUrl.type = 'text';
-  wmsUrl.placeholder = 'WMS URL (e.g. geoserver/ows)';
+  wmsUrl.placeholder = 'WMS URL';
   wmsUrl.value = CONFIG.geoserverUrl + '/ows';
-  wmsSection.appendChild(wmsUrl);
+  body.appendChild(wmsUrl);
 
-  const wmsLayer = document.createElement('input');
-  wmsLayer.type = 'text';
-  wmsLayer.placeholder = '图层名称 (e.g. workspace:layer)';
-  wmsSection.appendChild(wmsLayer);
+  const wmsName = document.createElement('input');
+  wmsName.className = 'input-field';
+  wmsName.type = 'text';
+  wmsName.placeholder = 'Layer name (workspace:layer)';
+  body.appendChild(wmsName);
 
   const wmsBtn = document.createElement('button');
-  wmsBtn.textContent = '加载';
+  wmsBtn.className = 'btn btn-primary';
+  wmsBtn.textContent = 'Load';
   wmsBtn.addEventListener('click', () => {
     const url = wmsUrl.value.trim();
-    const layerName = wmsLayer.value.trim();
+    const layerName = wmsName.value.trim();
     if (!url || !layerName) return;
     try {
       const provider = createWmsLayer(url, layerName);
       const imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
-      addItem(panel, viewer, 'WMS', layerName, () => viewer.imageryLayers.remove(imageryLayer));
+      addItem(panel, 'WMS', layerName, () => viewer.imageryLayers.remove(imageryLayer));
     } catch (e) {
-      alert('加载失败: ' + e.message);
+      alert('Load failed: ' + e.message);
     }
   });
-  wmsSection.appendChild(wmsBtn);
-  panel.appendChild(wmsSection);
+  body.appendChild(wmsBtn);
 
-  // --- Loaded items ---
-  const listSection = document.createElement('section');
-  listSection.innerHTML = '<h4>已加载数据</h4>';
+  // ---- Section: Loaded Data ----
+  const listTitle = document.createElement('div');
+  listTitle.className = 'section-title';
+  listTitle.textContent = 'Loaded Data';
+  body.appendChild(listTitle);
+
   const listEl = document.createElement('div');
-  listEl.className = 'data-item-list';
-  listEl.textContent = '暂无数据';
-  listSection.appendChild(listEl);
-  panel.appendChild(listSection);
+  listEl.className = 'data-list';
+  listEl.innerHTML = '<div class="empty">&mdash; No data loaded &mdash;</div>';
+  body.appendChild(listEl);
 
+  panel.appendChild(body);
   document.body.appendChild(panel);
 
   return {

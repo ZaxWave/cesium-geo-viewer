@@ -1,68 +1,64 @@
 import { CONFIG } from '../config.js';
 
-export function createLayerSwitcher(viewer, registry) {
+export function createLayerSwitcher(viewer, registry, activeId) {
   const container = document.createElement('div');
-  container.className = 'cesium-layer-switcher';
+  container.className = 'layer-switcher glass-panel';
 
-  const title = document.createElement('h3');
-  title.textContent = '底图切换';
-  container.appendChild(title);
+  // Header
+  const header = document.createElement('div');
+  header.className = 'switcher-header';
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = 'Map';
+  header.appendChild(dot);
+  header.appendChild(label);
+  container.appendChild(header);
 
-  Object.keys(registry).forEach((id) => {
-    if (!CONFIG.enabledBaseLayers.includes(id)) return;
+  // Chips
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+
+  CONFIG.enabledBaseLayers.forEach((id) => {
     const entry = registry[id];
-
-    const label = document.createElement('label');
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'baseLayer';
-    radio.value = id;
-
+    if (!entry) return;
     const disabled = entry.requiresToken && !CONFIG[entry.tokenKey];
-    radio.disabled = disabled;
 
-    if (id === CONFIG.enabledBaseLayers[0] && !disabled) {
-      radio.checked = true;
-    }
+    const chip = document.createElement('div');
+    chip.className = 'layer-chip' + (disabled ? ' disabled' : '') + (id === activeId ? ' active' : '');
+    chip.dataset.layerId = id;
 
-    radio.addEventListener('change', () => {
-      if (!radio.checked) return;
-      viewer.imageryLayers.removeAll(false);
-      const provider = entry.factory(CONFIG);
-      viewer.imageryLayers.addImageryProvider(provider);
-    });
+    const indicator = document.createElement('span');
+    indicator.className = 'chip-indicator';
+    chip.appendChild(indicator);
 
-    label.appendChild(radio);
-    label.appendChild(document.createTextNode(' ' + entry.name));
+    const name = document.createElement('span');
+    name.textContent = entry.name;
+    chip.appendChild(name);
+
     if (disabled) {
-      const warn = document.createElement('span');
-      warn.className = 'token-warning';
-      warn.textContent = ' (需Token)';
-      label.appendChild(warn);
+      const hint = document.createElement('span');
+      hint.className = 'token-hint';
+      hint.textContent = 'Token';
+      chip.appendChild(hint);
+    } else {
+      chip.addEventListener('click', () => {
+        chips.querySelectorAll('.layer-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        viewer.imageryLayers.removeAll(false);
+        viewer.imageryLayers.addImageryProvider(entry.factory(CONFIG));
+      });
     }
-    container.appendChild(label);
+
+    chips.appendChild(chip);
   });
 
+  container.appendChild(chips);
   document.body.appendChild(container);
-
-  // Fire initial layer
-  const firstRadio = container.querySelector('input:not([disabled])');
-  if (firstRadio) {
-    firstRadio.checked = true;
-    firstRadio.dispatchEvent(new Event('change'));
-  }
 
   return {
     element: container,
-    setActive(id) {
-      const radio = container.querySelector(`input[value="${id}"]`);
-      if (radio && !radio.disabled) {
-        radio.checked = true;
-        radio.dispatchEvent(new Event('change'));
-      }
-    },
-    destroy() {
-      container.remove();
-    },
+    destroy() { container.remove(); },
   };
 }
