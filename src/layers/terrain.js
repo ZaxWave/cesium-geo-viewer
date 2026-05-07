@@ -7,10 +7,11 @@ export function createDefaultTerrain() {
 
 // Requires Cesium Ion token in CONFIG.cesiumIonToken
 export function createWorldTerrain() {
-  return Cesium.CesiumTerrainProvider.fromUrl(
-    Cesium.IonResource.fromAssetId(1),
-    { requestWaterMask: true, requestVertexNormals: true }
-  );
+  return new Cesium.CesiumTerrainProvider({
+    url: Cesium.IonResource.fromAssetId(1),
+    requestVertexNormals: true,
+    requestWaterMask: true,
+  });
 }
 
 export function createLocalTerrain(url) {

@@ -50,3 +50,29 @@ export async function loadKmlFromFile(viewer, file, options) {
 export function removeDataSource(viewer, dataSource) {
   viewer.dataSources.remove(dataSource, true);
 }
+
+// ---------- CZML ----------
+const DEFAULT_CZML_STYLE = {
+  stroke: Cesium.Color.fromCssColorString('#FFD700'),
+  fill: Cesium.Color.fromCssColorString('#FFD700').withAlpha(0.3),
+  strokeWidth: 2,
+};
+
+export async function loadCzml(viewer, url, options = {}) {
+  const dataSource = await Cesium.CzmlDataSource.load(url, {
+    ...DEFAULT_CZML_STYLE,
+    ...options,
+  });
+  viewer.dataSources.add(dataSource);
+  await viewer.zoomTo(dataSource);
+  return dataSource;
+}
+
+export async function loadCzmlFromFile(viewer, file, options) {
+  const url = URL.createObjectURL(file);
+  try {
+    return await loadCzml(viewer, url, options);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

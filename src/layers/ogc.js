@@ -8,10 +8,11 @@ export function createWmsLayer(url, layers, options = {}) {
     layers,
     parameters: {
       service: 'WMS',
-      version: '1.3.0',
+      version: '1.1.1',
       request: 'GetMap',
       format: 'image/png',
       transparent: true,
+      srs: 'EPSG:4326',
       ...options.parameters,
     },
     ...options,
@@ -20,21 +21,31 @@ export function createWmsLayer(url, layers, options = {}) {
 
 // ---------- WMTS ----------
 export function createWmtsLayer(url, layer, options = {}) {
+  const maxLevel = options.maximumLevel || 18;
+  const tileMatrixLabels = [];
+  for (let i = 0; i <= maxLevel; i++) {
+    tileMatrixLabels.push(`EPSG:4326:${i}`);
+  }
   return new Cesium.WebMapTileServiceImageryProvider({
-    url,
+    url: url.replace('/rest', ''),
     layer,
-    style: 'default',
+    style: 'polygon',   // Must match GetCapabilities <Style><Identifier>polygon</Identifier>
     format: 'image/png',
     tileMatrixSetID: 'EPSG:4326',
-    maximumLevel: 18,
+    tileMatrixLabels,
+    tilingScheme: new Cesium.GeographicTilingScheme(),
+    maximumLevel: maxLevel,
     ...options,
   });
 }
 
 // ---------- TMS ----------
 export function createTmsLayer(url, options = {}) {
-  return new Cesium.TileMapServiceImageryProvider({
-    url,
+  // GeoServer TMS serves tiles at {z}/{x}/{y}.png with bottom-origin Y
+  // Use EPSG:4326 geographic grid (matches GeoServer GWC gridset)
+  return new Cesium.UrlTemplateImageryProvider({
+    url: `${url}/{z}/{x}/{reverseY}.png`,
+    tilingScheme: new Cesium.GeographicTilingScheme(),
     maximumLevel: 18,
     ...options,
   });

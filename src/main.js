@@ -8,39 +8,64 @@ import { createDefaultTerrain, createWorldTerrain, createLocalTerrain } from './
 import { createLayerSwitcher } from './ui/layerSwitcher.js';
 import { createDataPanel } from './ui/dataPanel.js';
 
+// 1. 设置 Token [cite: 16, 91, 92]
 if (CONFIG.cesiumIonToken) {
   Cesium.Ion.defaultAccessToken = CONFIG.cesiumIonToken;
 }
 
-// ---------- Viewer (no imageryProvider/terrainProvider — removed in 1.117+) ----------
+// 2. 初始化 Viewer
+// 注意：在新版中完全禁用 baseLayerPicker，并使用简单的 EllipsoidTerrainProvider 初始化 [cite: 102, 103]
 const viewer = new Cesium.Viewer('cesiumContainer', {
   baseLayerPicker: false,
   animation: false,
   timeline: false,
   infoBox: false,
   selectionIndicator: false,
+  terrainProvider: new Cesium.EllipsoidTerrainProvider(), 
 });
 
-// ---------- Add initial imagery & terrain AFTER viewer creation ----------
-const defaultLayer = BASE_LAYERS.gaode_img;
-viewer.imageryLayers.addImageryProvider(defaultLayer.factory(CONFIG));
+/**
+ * 初始化场景：处理底图和地形的异步加载 [cite: 51, 52, 104, 105]
+ */
+async function initializeScene() {
+  try {
+    // 强制清空 Cesium 默认加载的影像图层
+    viewer.imageryLayers.removeAll();
 
-if (CONFIG.localTerrainUrl) {
-  viewer.terrainProvider = createLocalTerrain(CONFIG.localTerrainUrl);
-} else if (CONFIG.cesiumIonToken) {
-  viewer.terrainProvider = createWorldTerrain();
-} else {
-  viewer.terrainProvider = createDefaultTerrain();
+    // 加载默认底图 (OSM)
+    const defaultLayer = BASE_LAYERS.osm;
+    const imageryProvider = defaultLayer.factory(CONFIG);
+    viewer.imageryLayers.addImageryProvider(imageryProvider);
+
+    // 默认平面地形 — 倾斜模型/点云需要时保持平面，地形由用户手动开启
+    viewer.terrainProvider = createDefaultTerrain();
+
+    console.log("场景初始化完成 (平面地形)");
+  } catch (error) {
+    console.error("场景初始化失败:", error);
+    if (viewer.imageryLayers.length === 0) {
+      viewer.imageryLayers.addImageryProvider(BASE_LAYERS.osm.factory(CONFIG));
+    }
+  }
 }
 
-// ---------- UI ----------
-const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
+// 执行初始化
+initializeScene();
+
+// 3. UI 挂载
+const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'osm');
 const dataPanel = createDataPanel(viewer);
 
-// ---------- Camera ----------
+// 4. 设置初始视角：张家界山区 (展示地形效果) [cite: 26, 117, 120]
 viewer.camera.setView({
-  destination: Cesium.Cartesian3.fromDegrees(116.38, 39.90, 15000),
+  destination: Cesium.Cartesian3.fromDegrees(110.48, 29.35, 8000),
+  orientation: { 
+    heading: Cesium.Math.toRadians(0), 
+    pitch: Cesium.Math.toRadians(-45), 
+    roll: 0 
+  },
 });
 
+// 暴露到全局方便调试 [cite: 94]
 window.__viewer = viewer;
 window.__layerSwitcher = layerSwitcher;

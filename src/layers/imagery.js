@@ -1,4 +1,5 @@
 import * as Cesium from 'cesium';
+import { createGcj02CorrectedGaodeProvider } from './gcj02.js';
 
 // ---------- Bing ----------
 export function createBingMapsLayer(key, mapStyle) {
@@ -30,11 +31,8 @@ export function createTiandituLayer(type, token) {
 const GAODE_SUBDOMAINS = ['1', '2', '3', '4'];
 
 export function createGaodeLayer(style) {
-  return new Cesium.UrlTemplateImageryProvider({
-    url: `https://webst0{s}.is.autonavi.com/appmaptile?style=${style}&x={x}&y={y}&z={z}`,
-    subdomains: GAODE_SUBDOMAINS,
-    maximumLevel: 18,
-  });
+  // GCJ-02 corrected: Gaode tiles are "pulled back" from GCJ-02 to WGS84
+  return createGcj02CorrectedGaodeProvider(style, GAODE_SUBDOMAINS);
 }
 
 // ---------- OSM ----------

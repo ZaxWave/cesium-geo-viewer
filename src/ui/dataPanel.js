@@ -1,7 +1,15 @@
+import * as Cesium from 'cesium';
 import { CONFIG } from '../config.js';
 import { load3DTileset, removeTileset } from '../layers/pointcloud.js';
 import { loadGeoJsonFromFile, loadKmlFromFile, removeDataSource } from '../layers/vector.js';
-import { createWmsLayer } from '../layers/ogc.js';
+import { createWmsLayer, createWmtsLayer, createTmsLayer } from '../layers/ogc.js';
+import { loadGeoTiffViaWms } from '../layers/raster.js';
+import { createDefaultTerrain, createWorldTerrain, createLocalTerrain } from '../layers/terrain.js';
+import { loadGltf, removeGltf } from '../layers/model.js';
+import { loadCzml, loadCzmlFromFile, removeDataSource as removeCzmlDs } from '../layers/vector.js';
+import { createSingleImageLayer } from '../layers/singleImage.js';
+
+const GS = CONFIG.geoserver;
 
 let items = [];
 
@@ -21,35 +29,47 @@ function removeItem(panel, index) {
 function renderList(panel) {
   const listEl = panel.querySelector('.data-list');
   listEl.innerHTML = '';
-
   if (items.length === 0) {
     listEl.innerHTML = '<div class="empty">&mdash; No data loaded &mdash;</div>';
     return;
   }
-
   items.forEach((item, i) => {
     const row = document.createElement('div');
     row.className = 'item';
-
     const badge = document.createElement('span');
     badge.className = 'type-badge';
     badge.textContent = item.type;
     row.appendChild(badge);
-
     const name = document.createElement('span');
     name.className = 'item-name';
     name.textContent = item.name;
     name.title = item.name;
     row.appendChild(name);
-
     const rm = document.createElement('button');
     rm.className = 'btn btn-sm rm-btn';
     rm.textContent = 'Remove';
     rm.addEventListener('click', () => removeItem(panel, i));
     row.appendChild(rm);
-
     listEl.appendChild(row);
   });
+}
+
+function makeSection(titleText) {
+  const section = document.createElement('div');
+  const title = document.createElement('div');
+  title.className = 'section-title';
+  title.textContent = titleText;
+  section.appendChild(title);
+  return section;
+}
+
+function inputField(placeholder, value) {
+  const el = document.createElement('input');
+  el.className = 'input-field';
+  el.type = 'text';
+  el.placeholder = placeholder;
+  el.value = value || '';
+  return el;
 }
 
 // ---------- Public ----------
@@ -69,20 +89,14 @@ export function createDataPanel(viewer) {
   header.appendChild(label);
   panel.appendChild(header);
 
-  // Body
   const body = document.createElement('div');
   body.className = 'panel-body';
 
-  // ---- Section: Vector ----
-  const vecTitle = document.createElement('div');
-  vecTitle.className = 'section-title';
-  vecTitle.textContent = 'Vector Data';
-  body.appendChild(vecTitle);
-
+  // ---- Vector ----
+  const vecSec = makeSection('Vector Data');
   const uploadZone = document.createElement('label');
   uploadZone.className = 'upload-zone';
-  uploadZone.innerHTML = '<span class="upload-icon">+</span> GeoJSON / KML';
-
+  uploadZone.innerHTML = '<span class="upload-icon">+</span>GeoJSON / KML';
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.geojson,.json,.kml,.kmz';
@@ -92,103 +106,293 @@ export function createDataPanel(viewer) {
     const ext = file.name.split('.').pop().toLowerCase();
     try {
       let ds;
-      if (ext === 'kml' || ext === 'kmz') {
-        ds = await loadKmlFromFile(viewer, file);
-      } else {
-        ds = await loadGeoJsonFromFile(viewer, file);
-      }
+      if (ext === 'kml' || ext === 'kmz') ds = await loadKmlFromFile(viewer, file);
+      else ds = await loadGeoJsonFromFile(viewer, file);
       if (ds) addItem(panel, 'Vector', file.name, () => removeDataSource(viewer, ds));
-    } catch (e) {
-      alert('Load failed: ' + e.message);
-    }
+    } catch (e) { alert('Load failed: ' + e.message); }
     fileInput.value = '';
   });
   uploadZone.appendChild(fileInput);
-  body.appendChild(uploadZone);
+  vecSec.appendChild(uploadZone);
+  body.appendChild(vecSec);
 
-  // ---- Section: 3D Tiles ----
-  const tileTitle = document.createElement('div');
-  tileTitle.className = 'section-title';
-  tileTitle.textContent = '3D Tiles';
-  body.appendChild(tileTitle);
-
-  const tileUrl = document.createElement('input');
-  tileUrl.className = 'input-field';
-  tileUrl.type = 'text';
-  tileUrl.placeholder = 'Tileset URL';
-  tileUrl.value = CONFIG.data.building3DTiles;
-  body.appendChild(tileUrl);
-
+  // ---- 3D Tiles ----
+  const tileSec = makeSection('3D Tiles');
+  const tileUrl = inputField('Tileset URL', CONFIG.data.building3DTiles);
+  tileSec.appendChild(tileUrl);
   const tileBtn = document.createElement('button');
   tileBtn.className = 'btn btn-primary';
   tileBtn.textContent = 'Load';
   tileBtn.addEventListener('click', async () => {
     const url = tileUrl.value.trim();
     if (!url) return;
+    // Switch to Tianditu base map (WGS84) for proper alignment
+    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
+    if (chip) chip.click();
     try {
       const tileset = await load3DTileset(viewer, url);
       addItem(panel, '3DTiles', url.split('/').pop() || url, () => removeTileset(viewer, tileset));
-    } catch (e) {
-      alert('Load failed: ' + e.message);
-    }
+    } catch (e) { alert('Load failed: ' + e.message); }
   });
-  body.appendChild(tileBtn);
+  tileSec.appendChild(tileBtn);
+  body.appendChild(tileSec);
 
-  // ---- Section: WMS ----
-  const wmsTitle = document.createElement('div');
-  wmsTitle.className = 'section-title';
-  wmsTitle.textContent = 'WMS Layer';
-  body.appendChild(wmsTitle);
+  // ---- 武大倾斜模型 ----
+  const whuSec = makeSection('WHU Oblique');
+  const whuUrl = inputField('Tileset URL', CONFIG.data.whuOblique);
+  whuSec.appendChild(whuUrl);
+  const whuBtn = document.createElement('button');
+  whuBtn.className = 'btn btn-primary';
+  whuBtn.textContent = 'Load WHU';
+  whuBtn.addEventListener('click', async () => {
+    const url = whuUrl.value.trim();
+    if (!url) return;
+    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
+    if (chip) chip.click();
+    try {
+      const tileset = await load3DTileset(viewer, url);
+      addItem(panel, '3DTiles', 'WHU Oblique', () => removeTileset(viewer, tileset));
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(...CONFIG.whuCenter),
+        orientation: { heading: 0, pitch: -45, roll: 0 },
+      });
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  whuSec.appendChild(whuBtn);
+  body.appendChild(whuSec);
 
-  const wmsUrl = document.createElement('input');
-  wmsUrl.className = 'input-field';
-  wmsUrl.type = 'text';
-  wmsUrl.placeholder = 'WMS URL';
-  wmsUrl.value = CONFIG.geoserverUrl + '/ows';
-  body.appendChild(wmsUrl);
-
-  const wmsName = document.createElement('input');
-  wmsName.className = 'input-field';
-  wmsName.type = 'text';
-  wmsName.placeholder = 'Layer name (workspace:layer)';
-  body.appendChild(wmsName);
-
+  // ---- WMS ----
+  const wmsSec = makeSection('WMS');
+  const wmsUrl = inputField('WMS URL', GS.wmsUrl);
+  const wmsLayerName = inputField('Layer name', GS.wmsLayer);
+  [wmsUrl, wmsLayerName].forEach(el => wmsSec.appendChild(el));
   const wmsBtn = document.createElement('button');
   wmsBtn.className = 'btn btn-primary';
   wmsBtn.textContent = 'Load';
   wmsBtn.addEventListener('click', () => {
-    const url = wmsUrl.value.trim();
-    const layerName = wmsName.value.trim();
-    if (!url || !layerName) return;
+    const url = wmsUrl.value.trim(), ln = wmsLayerName.value.trim();
+    if (!url || !ln) return;
     try {
-      const provider = createWmsLayer(url, layerName);
-      const imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
-      addItem(panel, 'WMS', layerName, () => viewer.imageryLayers.remove(imageryLayer));
-    } catch (e) {
-      alert('Load failed: ' + e.message);
-    }
+      const p = createWmsLayer(url, ln);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'WMS', ln, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
   });
-  body.appendChild(wmsBtn);
+  wmsSec.appendChild(wmsBtn);
+  body.appendChild(wmsSec);
 
-  // ---- Section: Loaded Data ----
-  const listTitle = document.createElement('div');
-  listTitle.className = 'section-title';
-  listTitle.textContent = 'Loaded Data';
-  body.appendChild(listTitle);
+  // ---- WMTS ----
+  const wmtsSec = makeSection('WMTS');
+  const wmtsUrl = inputField('WMTS URL', GS.wmtsUrl);
+  const wmtsLayerName = inputField('Layer name', GS.wmtsLayer);
+  [wmtsUrl, wmtsLayerName].forEach(el => wmtsSec.appendChild(el));
+  const wmtsBtn = document.createElement('button');
+  wmtsBtn.className = 'btn btn-primary';
+  wmtsBtn.textContent = 'Load';
+  wmtsBtn.addEventListener('click', () => {
+    const url = wmtsUrl.value.trim(), ln = wmtsLayerName.value.trim();
+    if (!url || !ln) return;
+    try {
+      const p = createWmtsLayer(url, ln);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'WMTS', ln, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  wmtsSec.appendChild(wmtsBtn);
+  body.appendChild(wmtsSec);
 
+  // ---- TMS ----
+  const tmsSec = makeSection('TMS');
+  const tmsUrl = inputField('TMS URL', GS.tmsUrl);
+  const tmsPath = inputField('Full path', GS.tmsPath);
+  [tmsUrl, tmsPath].forEach(el => tmsSec.appendChild(el));
+  const tmsBtn = document.createElement('button');
+  tmsBtn.className = 'btn btn-primary';
+  tmsBtn.textContent = 'Load';
+  tmsBtn.addEventListener('click', () => {
+    const url = (tmsUrl.value.trim() + tmsPath.value.trim()).replace(/\/$/, '');
+    if (!url) return;
+    try {
+      const p = createTmsLayer(url);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'TMS', url.split('/').pop(), () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  tmsSec.appendChild(tmsBtn);
+  body.appendChild(tmsSec);
+
+  // ---- TIFF ----
+  const tiffSec = makeSection('TIFF (via WMS)');
+  const tiffLayerName = inputField('Layer name', GS.tiffLayer);
+  tiffSec.appendChild(tiffLayerName);
+  const tiffBtn = document.createElement('button');
+  tiffBtn.className = 'btn btn-primary';
+  tiffBtn.textContent = 'Load';
+  tiffBtn.addEventListener('click', () => {
+    const ln = tiffLayerName.value.trim();
+    if (!ln) return;
+    try {
+      const l = loadGeoTiffViaWms(viewer, ln);
+      addItem(panel, 'TIFF', ln, () => viewer.imageryLayers.remove(l));
+      viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(...GS.hubeiCenter) });
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  tiffSec.appendChild(tiffBtn);
+  body.appendChild(tiffSec);
+
+  // ---- glTF / GLB Model ----
+  const gltfSec = makeSection('glTF Model');
+  const gltfUrl = inputField('glTF / GLB URL or path', CONFIG.data.gltf || '');
+  gltfSec.appendChild(gltfUrl);
+  const gltfUpload = document.createElement('label');
+  gltfUpload.className = 'upload-zone';
+  gltfUpload.innerHTML = '<span class="upload-icon">+</span>Upload .gltf / .glb';
+  const gltfFileInput = document.createElement('input');
+  gltfFileInput.type = 'file';
+  gltfFileInput.accept = '.gltf,.glb';
+  gltfFileInput.addEventListener('change', async () => {
+    const file = gltfFileInput.files[0];
+    if (!file) return;
+    try {
+      const url = URL.createObjectURL(file);
+      const model = await loadGltf(viewer, url);
+      addItem(panel, 'glTF', file.name, () => removeGltf(viewer, model));
+    } catch (e) { alert('Load failed: ' + e.message); }
+    gltfFileInput.value = '';
+  });
+  gltfUpload.appendChild(gltfFileInput);
+  gltfSec.appendChild(gltfUpload);
+  const gltfBtn = document.createElement('button');
+  gltfBtn.className = 'btn btn-primary';
+  gltfBtn.textContent = 'Load from URL';
+  gltfBtn.addEventListener('click', async () => {
+    const url = gltfUrl.value.trim();
+    if (!url) return;
+    try {
+      const model = await loadGltf(viewer, url);
+      addItem(panel, 'glTF', url.split('/').pop() || url, () => removeGltf(viewer, model));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  gltfSec.appendChild(gltfBtn);
+  body.appendChild(gltfSec);
+
+  // ---- CZML ----
+  const czmlSec = makeSection('CZML');
+  const czmlUrl = inputField('CZML URL', CONFIG.data.czml || '');
+  czmlSec.appendChild(czmlUrl);
+  const czmlUpload = document.createElement('label');
+  czmlUpload.className = 'upload-zone';
+  czmlUpload.innerHTML = '<span class="upload-icon">+</span>Upload .czml';
+  const czmlFileInput = document.createElement('input');
+  czmlFileInput.type = 'file';
+  czmlFileInput.accept = '.czml';
+  czmlFileInput.addEventListener('change', async () => {
+    const file = czmlFileInput.files[0];
+    if (!file) return;
+    try {
+      const ds = await loadCzmlFromFile(viewer, file);
+      if (ds) addItem(panel, 'CZML', file.name, () => removeCzmlDs(viewer, ds));
+    } catch (e) { alert('Load failed: ' + e.message); }
+    czmlFileInput.value = '';
+  });
+  czmlUpload.appendChild(czmlFileInput);
+  czmlSec.appendChild(czmlUpload);
+  const czmlBtn = document.createElement('button');
+  czmlBtn.className = 'btn btn-primary';
+  czmlBtn.textContent = 'Load from URL';
+  czmlBtn.addEventListener('click', async () => {
+    const url = czmlUrl.value.trim();
+    if (!url) return;
+    try {
+      const ds = await loadCzml(viewer, url);
+      if (ds) addItem(panel, 'CZML', url.split('/').pop() || url, () => removeCzmlDs(viewer, ds));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  czmlSec.appendChild(czmlBtn);
+  body.appendChild(czmlSec);
+
+  // ---- Single Image Base Map ----
+  const imgSec = makeSection('Single Image');
+  const imgUrl = inputField('Image URL', CONFIG.data.singleImage || '');
+  imgSec.appendChild(imgUrl);
+  const imgBtn = document.createElement('button');
+  imgBtn.className = 'btn btn-primary';
+  imgBtn.textContent = 'Load as Layer';
+  imgBtn.addEventListener('click', () => {
+    const url = imgUrl.value.trim();
+    if (!url) return;
+    try {
+      const provider = createSingleImageLayer(url);
+      const l = viewer.imageryLayers.addImageryProvider(provider);
+      addItem(panel, 'Image', url.split('/').pop() || url, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  imgSec.appendChild(imgBtn);
+  body.appendChild(imgSec);
+
+  // ---- Terrain Toggle ----
+  const terrainSec = makeSection('Terrain');
+  const terrainStatus = document.createElement('div');
+  terrainStatus.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:6px;';
+  terrainStatus.textContent = 'Flat (ellipsoid)';
+  terrainSec.appendChild(terrainStatus);
+
+  const terrainRow = document.createElement('div');
+  terrainRow.style.cssText = 'display:flex;gap:4px;';
+
+  function terrainBtn(label, onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.textContent = label;
+    btn.style.cssText = 'flex:1;padding:5px 8px;font-size:10px;';
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  terrainRow.appendChild(terrainBtn('Flat', () => {
+    viewer.terrainProvider = createDefaultTerrain();
+    terrainStatus.textContent = 'Flat (ellipsoid)';
+  }));
+
+  if (CONFIG.cesiumIonToken) {
+    terrainRow.appendChild(terrainBtn('Online', async () => {
+      terrainStatus.textContent = 'Loading World Terrain...';
+      try {
+        const wt = await Cesium.createWorldTerrainAsync();
+        viewer.terrainProvider = wt;
+        terrainStatus.textContent = 'Cesium World Terrain';
+      } catch (e) {
+        terrainStatus.textContent = 'Failed: ' + e.message;
+        viewer.terrainProvider = createDefaultTerrain();
+      }
+    }));
+  }
+
+  if (CONFIG.localTerrainUrl) {
+    terrainRow.appendChild(terrainBtn('Local', () => {
+      viewer.terrainProvider = createLocalTerrain(CONFIG.localTerrainUrl);
+      terrainStatus.textContent = 'Local Terrain';
+    }));
+  }
+
+  terrainSec.appendChild(terrainRow);
+  body.appendChild(terrainSec);
+
+  // ---- Loaded list ----
+  const listSec = makeSection('Loaded Data');
   const listEl = document.createElement('div');
   listEl.className = 'data-list';
   listEl.innerHTML = '<div class="empty">&mdash; No data loaded &mdash;</div>';
-  body.appendChild(listEl);
+  listSec.appendChild(listEl);
+  body.appendChild(listSec);
 
   panel.appendChild(body);
   document.body.appendChild(panel);
 
   return {
     element: panel,
-    destroy() {
-      items = [];
-      panel.remove();
-    },
+    bodyEl: body,
+    destroy() { items = []; panel.remove(); },
   };
 }
+
