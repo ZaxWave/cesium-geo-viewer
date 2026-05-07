@@ -20,6 +20,7 @@ export const CONFIG = Object.freeze({
 
   // Base layers shown in switcher — comment out any you lack tokens for
   enabledBaseLayers: [
+    'arcgis',
     'gaode_img',
     'gaode_street',
     'tianditu_img',

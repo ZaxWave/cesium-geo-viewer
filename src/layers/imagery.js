@@ -26,6 +26,13 @@ export function createTiandituLayer(type, token) {
   });
 }
 
+// ---------- ArcGIS (free, no token, global) ----------
+export function createArcGisLayer() {
+  return new Cesium.ArcGisMapServiceImageryProvider({
+    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+  });
+}
+
 // ---------- Gaode ----------
 const GAODE_SUBDOMAINS = ['1', '2', '3', '4'];
 
@@ -56,6 +63,12 @@ export function createMapboxLayer(token, styleId) {
 
 // ---------- Registry ----------
 export const BASE_LAYERS = {
+  arcgis: {
+    id: 'arcgis',
+    name: 'ArcGIS World',
+    factory: () => createArcGisLayer(),
+    requiresToken: false,
+  },
   bing: {
     id: 'bing',
     name: 'Bing Maps',

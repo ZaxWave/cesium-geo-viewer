@@ -4,7 +4,7 @@ import './index.css';
 
 import { CONFIG } from './config.js';
 import { BASE_LAYERS } from './layers/imagery.js';
-import { createWorldTerrain, createLocalTerrain } from './layers/terrain.js';
+import { createDefaultTerrain, createWorldTerrain, createLocalTerrain } from './layers/terrain.js';
 import { createLayerSwitcher } from './ui/layerSwitcher.js';
 import { createDataPanel } from './ui/dataPanel.js';
 
@@ -12,15 +12,22 @@ if (CONFIG.cesiumIonToken) {
   Cesium.Ion.defaultAccessToken = CONFIG.cesiumIonToken;
 }
 
-// ---------- Initial base layer (高德影像, no token needed) ----------
-const defaultLayer = BASE_LAYERS.gaode_img;
+// ---------- Initial base layer ----------
+const defaultLayer = BASE_LAYERS.arcgis;
 const initialImagery = defaultLayer.factory(CONFIG);
+
+let terrain;
+if (CONFIG.localTerrainUrl) {
+  terrain = createLocalTerrain(CONFIG.localTerrainUrl);
+} else if (CONFIG.cesiumIonToken) {
+  terrain = createWorldTerrain();
+} else {
+  terrain = createDefaultTerrain();
+}
 
 const viewer = new Cesium.Viewer('cesiumContainer', {
   imageryProvider: initialImagery,
-  terrainProvider: CONFIG.localTerrainUrl
-    ? createLocalTerrain(CONFIG.localTerrainUrl)
-    : createWorldTerrain(),
+  terrainProvider: terrain,
   baseLayerPicker: false,
   animation: false,
   timeline: false,
@@ -29,7 +36,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 });
 
 // ---------- UI ----------
-const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
+const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'arcgis');
 const dataPanel = createDataPanel(viewer);
 
 // ---------- Camera ----------
