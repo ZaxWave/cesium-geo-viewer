@@ -1,32 +1,47 @@
 # Cesium Geo Viewer
 
-基于 CesiumJS 的时空大数据三维可视化平台，支持矢量建筑白膜、倾斜摄影、glTF 模型、动态 CZML 等多源数据加载。
+一个基于 CesiumJS 的时空大数据三维可视化平台，旨在实现多源空间数据的统一展示与交互分析。
+
+## 核心能力
+
+- 多种数据类型加载：3DTiles、glTF、CZML、矢量数据、OGC 影像服务
+- 北京中心城区建筑白膜展示与倾斜摄影集成
+- 离线数据裁剪与预处理脚本支持
+- 基于 Vite 的轻量前端构建与快速开发体验
 
 ## 技术栈
 
-| 层 | 技术 |
-|------|------|
+| 模块 | 方案 |
+|---|---|
 | 三维引擎 | CesiumJS 1.110 |
 | 构建工具 | Vite 4 |
-| 数据预处理 | Python + GeoPandas |
-| 服务发布 | GeoServer (OGC WMS/WMTS) |
+| 数据处理 | Python + GeoPandas |
+| OGC 服务 | GeoServer (WMS / WMTS) |
 | 白膜生成 | CesiumLab |
 
-## 快速开始
+## 快速启动
+
+1. 安装依赖
 
 ```bash
-# 1. 安装依赖（需要 Node.js ≥ 18）
 npm install
-
-# 2. 启动开发服务器
-npm run dev
-
-# 3. 浏览器打开 http://localhost:5173
 ```
 
-## 可选：配置数据预处理环境
+2. 启动本地开发服务器
 
-数据裁剪、格式转换等离线任务建议用 conda 管理（geopandas 在 Windows 上通过 conda 安装更稳定）：
+```bash
+npm run dev
+```
+
+3. 在浏览器中打开
+
+```text
+http://localhost:5173
+```
+
+## 数据预处理（可选）
+
+推荐使用 Conda 创建独立 Python 环境，提升 Windows 下 GeoPandas 及空间库的稳定性：
 
 ```bash
 conda create -n geo python=3.11
@@ -36,48 +51,50 @@ conda install -c conda-forge geopandas
 
 ## 项目结构
 
-```
-cesium-geo-viewer/
-  src/
-    main.js              # Cesium 入口，初始化 Viewer
-    index.css            # 全局样式
-    api/                 # GeoServer OGC 服务配置
-    utils/               # 量测、坐标转换等工具函数
-    assets/              # 样式及图标
-  public/
-    data/
-      3DTiles/           # 建筑白膜（3DTiles）
-      Models/            # glTF / OBJ 模型
-      Vector/            # GeoJSON / KML 数据
-      CZML/              # CZML 动态数据
-    images/              # Logo 及底图
-  scripts/
-    clip_beijing_central.py  # 北京中心城区建筑裁剪脚本
-  data/                  # 原始数据（gitignored）
-  package.json
-  vite.config.js
+```text
+CesiumProject/
+├─ src/
+│  ├─ main.js              # Cesium 应用入口
+│  ├─ index.css            # 全局样式
+│  ├─ api/                 # OGC 服务配置与访问封装
+│  ├─ layers/              # 图层加载与管理逻辑
+│  ├─ ui/                  # 界面组件与交互面板
+│  └─ utils/               # 通用工具函数
+├─ public/
+│  ├─ data/
+│  │  ├─ 3DTiles/         # 3DTiles 数据目录
+│  │  ├─ Models/          # glTF / 模型文件
+│  │  ├─ Vector/          # 矢量数据文件
+│  │  └─ CZML/            # 动态 CZML 数据
+│  └─ images/             # 资源图片
+├─ scripts/
+│  └─ clip_beijing_central.py  # 北京中心城区建筑裁剪脚本
+├─ data/                   # 原始空间数据（通常不纳入版本控制）
+├─ package.json
+└─ vite.config.js
 ```
 
 ## 数据处理工作流
 
-原始数据（全北京 250 万栋建筑，542MB）→ 裁剪为中心城区：
+1. 使用 `scripts/clip_beijing_central.py` 对原始建筑数据进行裁剪
+2. 将裁剪后的结果导入 CesiumLab 生成白膜模型
+3. 将生成的 3DTiles 部署到 `public/data/3DTiles/`
 
 ```bash
 conda activate geo
 python scripts/clip_beijing_central.py
 ```
 
-裁剪后（44 万栋，199MB）→ CesiumLab 拉伸白膜 → 输出 3DTiles 到 `public/data/3DTiles/`
+## 当前功能概览
 
-## 功能清单
+- ✅ Cesium 前端可视化框架搭建
+- ✅ 建筑 Shapefile 白膜裁剪与展示
+- ⬜ OGC 地图瓦片服务加载
+- ⬜ GeoJSON / KML / 点云 / 地形数据支持
+- ⬜ glTF / CZML 动态三维展示
+- ⬜ BIM 与复杂模型集成
+- ⬜ 交互式三维标注与动画模拟
 
-- [x] Cesium 开发环境搭建
-- [x] 建筑 Shapefile 白膜拉伸（CesiumLab）
-- [ ] 影像底图加载（Bing / 天地图 / 高德 / OSM / MapBox）
-- [ ] OGC 服务加载（WMS / WMTS / TMS）
-- [ ] GeoJSON / KML / TIFF / 点云 / 地形数据加载
-- [ ] 武汉大学信息学部倾斜摄影加载
-- [ ] glTF / CZML / 单张图片底图加载
-- [ ] BIM 数据加载
-- [ ] 三维 LOG 放置
-- [ ] 道路车辆行驶模拟
+## 说明
+
+本项目适用于城市三维可视化、空间数据展示与时空分析应用场景，便于后续扩展多源影像、模型和动态专题数据。
