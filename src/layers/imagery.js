@@ -26,13 +26,6 @@ export function createTiandituLayer(type, token) {
   });
 }
 
-// ---------- ArcGIS (free, no token, global) ----------
-export function createArcGisLayer() {
-  return new Cesium.ArcGisMapServiceImageryProvider({
-    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-  });
-}
-
 // ---------- Gaode ----------
 const GAODE_SUBDOMAINS = ['1', '2', '3', '4'];
 
@@ -63,12 +56,6 @@ export function createMapboxLayer(token, styleId) {
 
 // ---------- Registry ----------
 export const BASE_LAYERS = {
-  arcgis: {
-    id: 'arcgis',
-    name: 'ArcGIS World',
-    factory: () => createArcGisLayer(),
-    requiresToken: false,
-  },
   bing: {
     id: 'bing',
     name: 'Bing Maps',
@@ -96,9 +83,9 @@ export const BASE_LAYERS = {
     factory: () => createGaodeLayer(6),
     requiresToken: false,
   },
-  gaode_street: {
-    id: 'gaode_street',
-    name: '高德路网',
+  gaode_vec: {
+    id: 'gaode_vec',
+    name: '高德矢量',
     factory: () => createGaodeLayer(8),
     requiresToken: false,
   },

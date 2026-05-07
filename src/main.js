@@ -12,22 +12,8 @@ if (CONFIG.cesiumIonToken) {
   Cesium.Ion.defaultAccessToken = CONFIG.cesiumIonToken;
 }
 
-// ---------- Initial base layer ----------
-const defaultLayer = BASE_LAYERS.arcgis;
-const initialImagery = defaultLayer.factory(CONFIG);
-
-let terrain;
-if (CONFIG.localTerrainUrl) {
-  terrain = createLocalTerrain(CONFIG.localTerrainUrl);
-} else if (CONFIG.cesiumIonToken) {
-  terrain = createWorldTerrain();
-} else {
-  terrain = createDefaultTerrain();
-}
-
+// ---------- Viewer (no imageryProvider/terrainProvider — removed in 1.117+) ----------
 const viewer = new Cesium.Viewer('cesiumContainer', {
-  imageryProvider: initialImagery,
-  terrainProvider: terrain,
   baseLayerPicker: false,
   animation: false,
   timeline: false,
@@ -35,8 +21,20 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   selectionIndicator: false,
 });
 
+// ---------- Add initial imagery & terrain AFTER viewer creation ----------
+const defaultLayer = BASE_LAYERS.gaode_img;
+viewer.imageryLayers.addImageryProvider(defaultLayer.factory(CONFIG));
+
+if (CONFIG.localTerrainUrl) {
+  viewer.terrainProvider = createLocalTerrain(CONFIG.localTerrainUrl);
+} else if (CONFIG.cesiumIonToken) {
+  viewer.terrainProvider = createWorldTerrain();
+} else {
+  viewer.terrainProvider = createDefaultTerrain();
+}
+
 // ---------- UI ----------
-const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'arcgis');
+const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
 const dataPanel = createDataPanel(viewer);
 
 // ---------- Camera ----------

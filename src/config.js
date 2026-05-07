@@ -6,7 +6,7 @@ export const CONFIG = Object.freeze({
   mapboxToken: '',
 
   // GeoServer endpoint
-  geoserverUrl: 'http://localhost:8080/geoserver',
+  geoserverUrl: '/geoserver',
 
   // Local terrain tiles URL (e.g. from CesiumLab terrain output)
   localTerrainUrl: '',
@@ -20,9 +20,8 @@ export const CONFIG = Object.freeze({
 
   // Base layers shown in switcher — comment out any you lack tokens for
   enabledBaseLayers: [
-    'arcgis',
     'gaode_img',
-    'gaode_street',
+    'gaode_vec',
     'tianditu_img',
     'tianditu_vec',
     'osm',

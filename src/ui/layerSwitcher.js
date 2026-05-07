@@ -47,7 +47,11 @@ export function createLayerSwitcher(viewer, registry, activeId) {
         chips.querySelectorAll('.layer-chip').forEach((c) => c.classList.remove('active'));
         chip.classList.add('active');
         viewer.imageryLayers.removeAll(false);
-        viewer.imageryLayers.addImageryProvider(entry.factory(CONFIG));
+        if (entry.factories) {
+          entry.factories.forEach((fn) => viewer.imageryLayers.addImageryProvider(fn(CONFIG)));
+        } else {
+          viewer.imageryLayers.addImageryProvider(entry.factory(CONFIG));
+        }
       });
     }
 
