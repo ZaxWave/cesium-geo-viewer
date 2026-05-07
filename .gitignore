@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.local
+
+# Large data files — keep locally, not in git
+data/
+public/data/
+
+# OS
+.DS_Store
+Thumbs.db
