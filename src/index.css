@@ -245,6 +245,20 @@ body {
   box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.1);
 }
 
+select.input-field {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+select.input-field option {
+  background: #1a2030;
+  color: #e2e8f0;
+}
+
 .input-field::placeholder {
   color: rgba(255, 255, 255, 0.22);
 }
@@ -382,6 +396,24 @@ body {
   font-size: 12px;
   font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   color: #5b9bd5;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ===== Camera Help ===== */
+.camera-help {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 5px 16px;
+  background: rgba(20, 25, 35, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
   pointer-events: none;
   user-select: none;
 }

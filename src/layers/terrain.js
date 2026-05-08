@@ -14,9 +14,8 @@ export function createWorldTerrain() {
   });
 }
 
-export function createLocalTerrain(url) {
-  return new Cesium.CesiumTerrainProvider({
-    url,
+export async function createLocalTerrain(url) {
+  return await Cesium.CesiumTerrainProvider.fromUrl(url, {
     requestVertexNormals: true,
     requestWaterMask: false,
   });

@@ -1,34 +1,119 @@
 import * as Cesium from 'cesium';
 
-// WHU campus road path [lon, lat, alt] — approximate loop near 信息学部
-const WHU_PATH = [
-  [114.3500, 30.5315, 2],
-  [114.3510, 30.5318, 2],
-  [114.3520, 30.5320, 2],
-  [114.3525, 30.5325, 2],
-  [114.3520, 30.5330, 2],
-  [114.3510, 30.5332, 2],
-  [114.3500, 30.5330, 2],
-  [114.3495, 30.5325, 2],
-  [114.3498, 30.5320, 2],
-  [114.3500, 30.5315, 2],
-];
-
+// --- State ---
+let pathPoints = [];
+let pathMarkers = [];
+let pickHandler = null;
+let pickingActive = false;
+let onPathUpdate = null;
 let activeVehicle = null;
 
+// ==================== Path Picking ====================
+
+export function startPicking(viewer, onUpdate) {
+  if (pickingActive) return;
+  pickingActive = true;
+  onPathUpdate = onUpdate || null;
+
+  viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(
+    Cesium.ScreenSpaceEventType.LEFT_CLICK
+  );
+
+  pickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  pickHandler.setInputAction((click) => {
+    const cartesian = viewer.scene.pickPosition(click.position);
+    if (!Cesium.defined(cartesian)) return;
+
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+    const lon = Cesium.Math.toDegrees(cartographic.longitude);
+    const lat = Cesium.Math.toDegrees(cartographic.latitude);
+    const alt = cartographic.height > 0 ? cartographic.height : 3;
+
+    pathPoints.push({ lon, lat, alt });
+
+    const marker = viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.DODGERBLUE,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      label: {
+        text: String(pathPoints.length),
+        font: 'bold 11px sans-serif',
+        fillColor: Cesium.Color.WHITE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 2,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -12),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    });
+    pathMarkers.push(marker);
+    updatePathLine(viewer);
+
+    if (onPathUpdate) onPathUpdate(pathPoints.length);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+function updatePathLine(viewer) {
+  if (pathMarkers._line) { viewer.entities.remove(pathMarkers._line); pathMarkers._line = null; }
+  if (pathPoints.length < 2) return;
+
+  pathMarkers._line = viewer.entities.add({
+    polyline: {
+      positions: pathPoints.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt)),
+      width: 2,
+      material: Cesium.Color.DODGERBLUE.withAlpha(0.55),
+      clampToGround: false,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+    },
+  });
+}
+
+export function stopPicking() {
+  if (pickHandler) { pickHandler.destroy(); pickHandler = null; }
+  pickingActive = false;
+  onPathUpdate = null;
+}
+
+export function clearPath(viewer) {
+  pathMarkers.forEach((m) => viewer.entities.remove(m));
+  if (pathMarkers._line) viewer.entities.remove(pathMarkers._line);
+  pathMarkers = [];
+  pathPoints = [];
+}
+
+export function getPathPointCount() { return pathPoints.length; }
+export function isPicking() { return pickingActive; }
+
+// ==================== Vehicle Simulation ====================
+
 export function startVehicleSimulation(viewer, options = {}) {
-  const { path, speed, carUrl } = {
-    path: WHU_PATH,
-    speed: 20, // m/s
-    carUrl: null,
-    ...options,
-  };
+  const { speed } = { speed: 25, ...options };
 
   if (activeVehicle) stopVehicleSimulation(viewer);
+  if (pathPoints.length < 2) {
+    alert('Please pick at least 2 path points on the map first.');
+    return null;
+  }
 
+  stopPicking();
+
+  const bodyPos = new Cesium.SampledPositionProperty();
+  const totalSeconds = computePathLength(pathPoints) / speed;
   const start = Cesium.JulianDate.fromDate(new Date());
-  const totalSeconds = computePathLength(path) / speed;
   const stop = Cesium.JulianDate.addSeconds(start, totalSeconds, new Cesium.JulianDate());
+  const step = totalSeconds / (pathPoints.length - 1);
+
+  pathPoints.forEach((p, i) => {
+    const time = Cesium.JulianDate.addSeconds(start, step * i, new Cesium.JulianDate());
+    bodyPos.addSample(time, Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.alt));
+  });
+
+  const orientation = new Cesium.VelocityOrientationProperty(bodyPos);
 
   viewer.clock.startTime = start.clone();
   viewer.clock.stopTime = stop.clone();
@@ -36,92 +121,89 @@ export function startVehicleSimulation(viewer, options = {}) {
   viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
   viewer.clock.multiplier = 1;
 
-  const position = new Cesium.SampledPositionProperty();
-  const step = totalSeconds / (path.length - 1);
-  path.forEach(([lon, lat, alt], i) => {
-    const time = Cesium.JulianDate.addSeconds(start, step * i, new Cesium.JulianDate());
-    position.addSample(time, Cesium.Cartesian3.fromDegrees(lon, lat, alt));
-  });
-
-  const orientation = new Cesium.VelocityOrientationProperty(position);
-
-  const entity = viewer.entities.add({
+  // Car using GroundVehicle.glb model
+  const car = viewer.entities.add({
     availability: new Cesium.TimeIntervalCollection([
       new Cesium.TimeInterval({ start, stop }),
     ]),
-    position,
+    position: bodyPos,
     orientation,
     model: {
-      uri: carUrl || createCarModelUrl(),
-      minimumPixelSize: 64,
-      scale: 1.5,
+      uri: '/data/Models/GroundVehicle.glb',
+      scale: 3.0,
+      minimumPixelSize: 100,
+      maximumScale: 200,
     },
     path: {
       resolution: 1,
       material: new Cesium.PolylineGlowMaterialProperty({
-        glowPower: 0.15,
+        glowPower: 0.12,
         color: Cesium.Color.DODGERBLUE,
       }),
-      width: 3,
+      width: 4,
     },
   });
 
-  viewer.trackedEntity = entity;
+  // First-person camera: update each frame
+  const camUpdater = function (scene, time) {
+    if (!activeVehicle || activeVehicle.entity !== car) {
+      viewer.scene.preUpdate.removeEventListener(camUpdater);
+      return;
+    }
+    const pos = bodyPos.getValue(viewer.clock.currentTime);
+    const ori = orientation.getValue(viewer.clock.currentTime);
+    if (!Cesium.defined(pos) || !Cesium.defined(ori)) return;
+
+    // Driver's eye position: 2m above car center
+    const eyeOffset = Cesium.Matrix3.multiplyByVector(
+      Cesium.Matrix3.fromQuaternion(ori),
+      new Cesium.Cartesian3(0, 0, 2),
+      new Cesium.Cartesian3()
+    );
+    const eyePos = Cesium.Cartesian3.add(pos, eyeOffset, new Cesium.Cartesian3());
+
+    // Look direction: forward from car orientation
+    const forward = Cesium.Matrix3.multiplyByVector(
+      Cesium.Matrix3.fromQuaternion(ori),
+      new Cesium.Cartesian3(1, 0, 0),
+      new Cesium.Cartesian3()
+    );
+    const lookTarget = Cesium.Cartesian3.add(eyePos, forward, new Cesium.Cartesian3());
+
+    scene.camera.setView({
+      destination: eyePos,
+      orientation: {
+        direction: Cesium.Cartesian3.subtract(lookTarget, eyePos, new Cesium.Cartesian3()),
+        up: Cesium.Cartesian3.UNIT_Z,
+      },
+    });
+  };
+  viewer.scene.preUpdate.addEventListener(camUpdater);
+
   viewer.clock.shouldAnimate = true;
 
-  activeVehicle = { entity, start, stop };
-  return entity;
+  activeVehicle = { entity: car, start, stop };
+  return car;
 }
 
 export function stopVehicleSimulation(viewer) {
+  viewer.trackedEntity = undefined;
   if (activeVehicle) {
     viewer.entities.remove(activeVehicle.entity);
     activeVehicle = null;
   }
   viewer.clock.shouldAnimate = false;
-  viewer.trackedEntity = undefined;
 }
 
-// Simple car model generated as a colored box with wheels
-function createCarModelUrl() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
+// ==================== Util ====================
 
-  // Car body
-  ctx.fillStyle = '#e63946';
-  ctx.beginPath();
-  ctx.moveTo(20, 50);
-  ctx.lineTo(40, 20);
-  ctx.lineTo(180, 20);
-  ctx.lineTo(220, 50);
-  ctx.lineTo(236, 50);
-  ctx.lineTo(236, 90);
-  ctx.lineTo(20, 90);
-  ctx.closePath();
-  ctx.fill();
-
-  // Windows
-  ctx.fillStyle = '#a8dadc';
-  ctx.fillRect(55, 28, 50, 20);
-  ctx.fillRect(115, 28, 50, 20);
-
-  // Wheels
-  ctx.fillStyle = '#1d3557';
-  ctx.beginPath(); ctx.arc(55, 95, 14, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(195, 95, 14, 0, Math.PI * 2); ctx.fill();
-
-  return canvas.toDataURL();
-}
-
-function computePathLength(path) {
+function computePathLength(points) {
   let total = 0;
-  for (let i = 1; i < path.length; i++) {
-    const [l1, a1] = path[i - 1];
-    const [l2, a2] = path[i];
-    const dLat = (l2 - l1) * 111320;
-    const dLon = (a2 - a1) * 111320 * Math.cos(((a1 + a2) / 2) * Math.PI / 180);
+  for (let i = 1; i < points.length; i++) {
+    const { lon: l1, lat: a1 } = points[i - 1];
+    const { lon: l2, lat: a2 } = points[i];
+    const dLat = (a2 - a1) * 111320;
+    const dLon = (l2 - l1) * 111320 * Math.cos(((a1 + a2) / 2) * Math.PI / 180);
     total += Math.sqrt(dLat * dLat + dLon * dLon);
   }
   return total;

@@ -4,14 +4,19 @@ import * as Cesium from 'cesium';
 export async function loadBimModel(viewer, url, options = {}) {
   const { lon, lat, alt, scale, heading } = {
     lon: 114.3515, lat: 30.5327, alt: 0,
-    scale: 1, heading: 0,
+    scale: 5, heading: 0,
     ...options,
   };
 
   if (url && url.trim()) {
     // Real BIM model (glTF from IFC/Revit conversion)
     const origin = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-    const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(heading), 0, 0);
+    // Pitch +90° rotates from glTF Y-up to Cesium ENU Z-up
+    const hpr = new Cesium.HeadingPitchRoll(
+      Cesium.Math.toRadians(heading),
+      Cesium.Math.toRadians(90),
+      0
+    );
     const modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(origin, hpr);
     const model = await Cesium.Model.fromGltfAsync({
       url,
@@ -21,7 +26,14 @@ export async function loadBimModel(viewer, url, options = {}) {
       maximumScale: 20000,
     });
     viewer.scene.primitives.add(model);
-    await viewer.zoomTo(model);
+    model.silhouetteColor = Cesium.Color.fromCssColorString('#2c3e50');
+    model.silhouetteSize = 2.0;
+    const r = (scale || 5) * 15;
+    const dist = Math.max(r * 2.5, 40);
+    viewer.camera.flyToBoundingSphere(
+      new Cesium.BoundingSphere(origin, r),
+      { offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-35), dist) }
+    );
     return model;
   }
 

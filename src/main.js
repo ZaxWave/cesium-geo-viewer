@@ -21,8 +21,28 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   timeline: false,
   infoBox: false,
   selectionIndicator: false,
-  terrainProvider: new Cesium.EllipsoidTerrainProvider(), 
+  terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+  shadows: true,
 });
+
+const scController = viewer.scene.screenSpaceCameraController;
+scController.enableRotate = true;
+scController.enableTranslate = true;
+scController.enableZoom = true;
+scController.enableTilt = true;
+scController.enableLook = true;
+scController.minimumZoomDistance = 1;
+scController.maximumZoomDistance = 50000000;
+scController.minimumPitch = Cesium.Math.toRadians(-89);
+scController.maximumPitch = Cesium.Math.toRadians(-1);
+
+// Camera help overlay
+(function setupCameraHelp() {
+  const el = document.createElement('div');
+  el.className = 'camera-help';
+  el.innerHTML = '左键拖拽旋转 &nbsp;|&nbsp; 右键拖拽平移 &nbsp;|&nbsp; 滚轮缩放 &nbsp;|&nbsp; 中键/Ctrl+左键 倾斜';
+  document.body.appendChild(el);
+})();
 
 /**
  * 初始化场景：处理底图和地形的异步加载 [cite: 51, 52, 104, 105]

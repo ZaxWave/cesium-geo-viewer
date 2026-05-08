@@ -9,7 +9,8 @@ import { loadGltf, removeGltf } from '../layers/model.js';
 import { createSingleImageLayer } from '../layers/singleImage.js';
 import { loadBimModel, removeBimModel } from '../layers/bim.js';
 import { place3DLogo, remove3DLogo } from '../layers/logo.js';
-import { startVehicleSimulation, stopVehicleSimulation } from '../layers/vehicle.js';
+import { startVehicleSimulation, stopVehicleSimulation, startPicking, stopPicking, clearPath, getPathPointCount, isPicking } from '../layers/vehicle.js';
+import { loadRawPointCloud, removeRawPointCloud } from '../layers/pointcloud_raw.js';
 
 const GS = CONFIG.geoserver;
 
@@ -23,6 +24,8 @@ function addItem(panel, type, name, removeFn) {
 function removeItem(panel, index) {
   const item = items[index];
   if (!item) return;
+  // Reset tracked entity to prevent postRender crash on removed entity
+  if (window.__viewer) window.__viewer.trackedEntity = undefined;
   try { item.removeFn(); } catch (e) { console.warn(e); }
   items.splice(index, 1);
   renderList(panel);
@@ -266,8 +269,8 @@ export function createDataPanel(viewer) {
       const tileset = await load3DTileset(viewer, url);
       addItem(panel, '3DTiles', 'WHU Oblique', () => removeTileset(viewer, tileset));
       viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(...CONFIG.whuCenter),
-        orientation: { heading: 0, pitch: -45, roll: 0 },
+        destination: Cesium.Cartesian3.fromDegrees(CONFIG.whuCenter[0], CONFIG.whuCenter[1], 500),
+        orientation: { heading: Cesium.Math.toRadians(30), pitch: Cesium.Math.toRadians(-30), roll: 0 },
       });
     } catch (e) { alert('Load failed: ' + e.message); }
   });
@@ -343,6 +346,38 @@ export function createDataPanel(viewer) {
   });
   bimSec.appendChild(bimBtnRow);
   tab1.appendChild(bimSec);
+
+  // Point Cloud
+  const pcSec = makeSection('Point Cloud');
+  const pcSelect = document.createElement('select');
+  pcSelect.className = 'input-field';
+  const pcFiles = [
+    { label: 'Armadillo (PLY)', path: '/data/三维点云数据/Armadillo.ply' },
+    { label: 'Bunny (PCD)', path: '/data/三维点云数据/bunny.pcd' },
+    { label: 'Chair (TXT)', path: '/data/三维点云数据/Chair.txt' },
+    { label: 'Cube (PLY)', path: '/data/三维点云数据/cube.ply' },
+    { label: 'Skull (TXT)', path: '/data/三维点云数据/Skull.txt' },
+    { label: 'Sphere (PCD)', path: '/data/三维点云数据/sphere.pcd' },
+    { label: 'Dragon (OBJ) — large!', path: '/data/三维点云数据/dragon.obj' },
+  ];
+  pcFiles.forEach((f) => {
+    const opt = document.createElement('option');
+    opt.value = f.path;
+    opt.textContent = f.label;
+    pcSelect.appendChild(opt);
+  });
+  pcSec.appendChild(pcSelect);
+  const pcBtn = document.createElement('button');
+  pcBtn.className = 'btn btn-primary';
+  pcBtn.textContent = 'Load Point Cloud';
+  pcBtn.addEventListener('click', async () => {
+    try {
+      const pc = await loadRawPointCloud(viewer, pcSelect.value);
+      addItem(panel, 'PtCloud', pcSelect.value.split('/').pop(), () => removeRawPointCloud(viewer, pc));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  pcSec.appendChild(pcBtn);
+  tab1.appendChild(pcSec);
 
   // CZML
   const czmlSec = makeSection('CZML');
@@ -429,8 +464,15 @@ export function createDataPanel(viewer) {
 
   // Vehicle
   const vehSec = makeSection('Vehicle Sim');
-  const vehRow = document.createElement('div');
-  vehRow.style.cssText = 'display:flex;gap:4px;';
+  const vehStatus = document.createElement('div');
+  vehStatus.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:4px;';
+  vehStatus.textContent = 'Pick points on map, then Start';
+
+  const vehRow1 = document.createElement('div');
+  vehRow1.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;';
+  const vehRow2 = document.createElement('div');
+  vehRow2.style.cssText = 'display:flex;gap:4px;';
+
   function vehBtn(label, color, onClick) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-sm';
@@ -439,18 +481,49 @@ export function createDataPanel(viewer) {
     btn.addEventListener('click', onClick);
     return btn;
   }
-  vehRow.appendChild(vehBtn('Start', '#2a9d8f', () => {
+
+  // Pick path toggle
+  let pickBtn = vehBtn('Pick Path', '#5b9bd5', () => {
+    if (isPicking()) {
+      stopPicking();
+      pickBtn.textContent = 'Pick Path';
+      pickBtn.style.background = '#5b9bd5';
+      vehStatus.textContent = `${getPathPointCount()} points picked`;
+    } else {
+      startPicking(viewer, (count) => {
+        vehStatus.textContent = `${count} point${count > 1 ? 's' : ''} picked — click more or Start`;
+      });
+      pickBtn.textContent = 'Stop Pick';
+      pickBtn.style.background = '#e76f51';
+      vehStatus.textContent = 'Click on map to place points...';
+    }
+  });
+  vehRow1.appendChild(pickBtn);
+  vehRow1.appendChild(vehBtn('Clear', '#6c757d', () => {
+    clearPath(viewer);
+    vehStatus.textContent = 'Path cleared. Pick points on map.';
+  }));
+  vehRow2.appendChild(vehBtn('Start', '#2a9d8f', () => {
     try {
-      startVehicleSimulation(viewer);
-      addItem(panel, 'Vehicle', 'Car on WHU road', () => stopVehicleSimulation(viewer));
+      const car = startVehicleSimulation(viewer);
+      if (car) {
+        stopPicking();
+        pickBtn.textContent = 'Pick Path';
+        pickBtn.style.background = '#5b9bd5';
+        addItem(panel, 'Vehicle', 'Car', () => stopVehicleSimulation(viewer));
+      }
     } catch (e) { alert('Sim failed: ' + e.message); }
   }));
-  vehRow.appendChild(vehBtn('Stop', '#e76f51', () => {
+  vehRow2.appendChild(vehBtn('Stop', '#e76f51', () => {
     stopVehicleSimulation(viewer);
+    vehStatus.textContent = 'Stopped. Pick new path or Start again.';
     items = items.filter((item) => item.type !== 'Vehicle');
     renderList(panel);
   }));
-  vehSec.appendChild(vehRow);
+
+  vehSec.appendChild(vehStatus);
+  vehSec.appendChild(vehRow1);
+  vehSec.appendChild(vehRow2);
   tab2.appendChild(vehSec);
 
   // Terrain
@@ -487,9 +560,15 @@ export function createDataPanel(viewer) {
     }));
   }
   if (CONFIG.localTerrainUrl) {
-    terrainRow.appendChild(terrainBtn('Local', () => {
-      viewer.terrainProvider = createLocalTerrain(CONFIG.localTerrainUrl);
-      terrainStatus.textContent = 'Local Terrain';
+    terrainRow.appendChild(terrainBtn('Local', async () => {
+      terrainStatus.textContent = 'Loading Local...';
+      try {
+        viewer.terrainProvider = await createLocalTerrain(CONFIG.localTerrainUrl);
+        terrainStatus.textContent = 'Local Terrain (WHU)';
+      } catch (e) {
+        terrainStatus.textContent = 'Failed: ' + e.message;
+        viewer.terrainProvider = createDefaultTerrain();
+      }
     }));
   }
   terrainSec.appendChild(terrainRow);

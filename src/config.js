@@ -35,11 +35,11 @@ export const CONFIG = Object.freeze({
     geotiff: '/data/raster/sample.tif',
     // 武汉大学信息学部倾斜摄影模型 (3D Tiles)
     whuOblique: '/data/whu_oblique/tileset.json',
-    gltf: '/data/Models/sample.gltf',
-    czml: '/data/CZML/sample.czml',
+    gltf: '/data/Models/IfcOpenHouse_v2.glb',
+    czml: '/data/CZML/e8fbf-main/satelliteTY/satelliteTY/czml/satellite.czml',
     singleImage: '/data/Vector/sample.jpg',
-    // BIM model (IFC/Revit → glTF) — place file or use URL
-    bim: '/data/Models/bim_building.glb',
+    // BIM model (IFC → GLB)
+    bim: '/data/Models/rac_basic_sample_project_v2.glb',
     // 3D LOGO display name
     logoName: '',
   },
