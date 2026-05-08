@@ -38,10 +38,16 @@ export const CONFIG = Object.freeze({
     gltf: '/data/Models/sample.gltf',
     czml: '/data/CZML/sample.czml',
     singleImage: '/data/Vector/sample.jpg',
+    // BIM model (IFC/Revit → glTF) — place file or use URL
+    bim: '/data/Models/bim_building.glb',
+    // 3D LOGO display name
+    logoName: '',
   },
 
   // 武汉大学信息学部 — 倾斜模型相机位置 [lon, lat, alt]
   whuCenter: [114.3515, 30.5327, 800],
+  // 3D LOGO 放置位置 — 友谊广场 [lon, lat, alt]
+  logoPosition: [114.355706, 30.527382, 0],
 
   // Base layers shown in switcher — comment out any you lack tokens for
   enabledBaseLayers: [

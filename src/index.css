@@ -170,7 +170,47 @@ body {
 }
 
 .data-panel .panel-body {
-  padding: 10px 14px 14px;
+  padding: 0 14px 14px;
+}
+
+/* ===== Tab Bar ===== */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.tab-btn.active {
+  color: #5b9bd5;
+  border-bottom-color: #5b9bd5;
+}
+
+.tab-panel {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .section-title {
@@ -326,6 +366,24 @@ body {
 
 .data-list .item:hover .rm-btn {
   opacity: 1;
+}
+
+/* ===== Coordinate Tracker ===== */
+.coord-tracker {
+  position: absolute;
+  bottom: 20px;
+  left: 16px;
+  z-index: 1000;
+  padding: 6px 14px;
+  background: rgba(20, 25, 35, 0.78);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: #5b9bd5;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ===== Scrollbar ===== */

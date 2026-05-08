@@ -1,13 +1,15 @@
 import * as Cesium from 'cesium';
 import { CONFIG } from '../config.js';
 import { load3DTileset, removeTileset } from '../layers/pointcloud.js';
-import { loadGeoJsonFromFile, loadKmlFromFile, removeDataSource } from '../layers/vector.js';
+import { loadGeoJsonFromFile, loadKmlFromFile, removeDataSource, loadCzml, loadCzmlFromFile } from '../layers/vector.js';
 import { createWmsLayer, createWmtsLayer, createTmsLayer } from '../layers/ogc.js';
 import { loadGeoTiffViaWms } from '../layers/raster.js';
 import { createDefaultTerrain, createWorldTerrain, createLocalTerrain } from '../layers/terrain.js';
 import { loadGltf, removeGltf } from '../layers/model.js';
-import { loadCzml, loadCzmlFromFile, removeDataSource as removeCzmlDs } from '../layers/vector.js';
 import { createSingleImageLayer } from '../layers/singleImage.js';
+import { loadBimModel, removeBimModel } from '../layers/bim.js';
+import { place3DLogo, remove3DLogo } from '../layers/logo.js';
+import { startVehicleSimulation, stopVehicleSimulation } from '../layers/vehicle.js';
 
 const GS = CONFIG.geoserver;
 
@@ -72,6 +74,28 @@ function inputField(placeholder, value) {
   return el;
 }
 
+function createTabBar(tabs) {
+  const bar = document.createElement('div');
+  bar.className = 'tab-bar';
+  tabs.forEach((tab, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = tab.label;
+    btn.dataset.tab = i;
+    btn.addEventListener('click', () => switchTab(bar, i));
+    bar.appendChild(btn);
+  });
+  return bar;
+}
+
+function switchTab(bar, idx) {
+  bar.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+  bar.children[idx].classList.add('active');
+  const panels = bar.parentElement.querySelectorAll('.tab-panel');
+  panels.forEach((p) => p.style.display = 'none');
+  panels[idx].style.display = '';
+}
+
 // ---------- Public ----------
 export function createDataPanel(viewer) {
   const panel = document.createElement('div');
@@ -92,31 +116,121 @@ export function createDataPanel(viewer) {
   const body = document.createElement('div');
   body.className = 'panel-body';
 
-  // ---- Vector ----
-  const vecSec = makeSection('Vector Data');
-  const uploadZone = document.createElement('label');
-  uploadZone.className = 'upload-zone';
-  uploadZone.innerHTML = '<span class="upload-icon">+</span>GeoJSON / KML';
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.geojson,.json,.kml,.kmz';
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const ext = file.name.split('.').pop().toLowerCase();
-    try {
-      let ds;
-      if (ext === 'kml' || ext === 'kmz') ds = await loadKmlFromFile(viewer, file);
-      else ds = await loadGeoJsonFromFile(viewer, file);
-      if (ds) addItem(panel, 'Vector', file.name, () => removeDataSource(viewer, ds));
-    } catch (e) { alert('Load failed: ' + e.message); }
-    fileInput.value = '';
-  });
-  uploadZone.appendChild(fileInput);
-  vecSec.appendChild(uploadZone);
-  body.appendChild(vecSec);
+  // ---- Tab bar ----
+  body.appendChild(createTabBar([
+    { label: '影像' },
+    { label: '模型' },
+    { label: '其他' },
+  ]));
 
-  // ---- 3D Tiles ----
+  // ==================== TAB 0: 影像 ====================
+  const tab0 = document.createElement('div');
+  tab0.className = 'tab-panel';
+
+  // WMS
+  const wmsSec = makeSection('WMS');
+  const wmsUrl = inputField('WMS URL', GS.wmsUrl);
+  const wmsLayerName = inputField('Layer name', GS.wmsLayer);
+  [wmsUrl, wmsLayerName].forEach(el => wmsSec.appendChild(el));
+  const wmsBtn = document.createElement('button');
+  wmsBtn.className = 'btn btn-primary';
+  wmsBtn.textContent = 'Load';
+  wmsBtn.addEventListener('click', () => {
+    const url = wmsUrl.value.trim(), ln = wmsLayerName.value.trim();
+    if (!url || !ln) return;
+    try {
+      const p = createWmsLayer(url, ln);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'WMS', ln, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  wmsSec.appendChild(wmsBtn);
+  tab0.appendChild(wmsSec);
+
+  // WMTS
+  const wmtsSec = makeSection('WMTS');
+  const wmtsUrl = inputField('WMTS URL', GS.wmtsUrl);
+  const wmtsLayerName = inputField('Layer name', GS.wmtsLayer);
+  [wmtsUrl, wmtsLayerName].forEach(el => wmtsSec.appendChild(el));
+  const wmtsBtn = document.createElement('button');
+  wmtsBtn.className = 'btn btn-primary';
+  wmtsBtn.textContent = 'Load';
+  wmtsBtn.addEventListener('click', () => {
+    const url = wmtsUrl.value.trim(), ln = wmtsLayerName.value.trim();
+    if (!url || !ln) return;
+    try {
+      const p = createWmtsLayer(url, ln);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'WMTS', ln, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  wmtsSec.appendChild(wmtsBtn);
+  tab0.appendChild(wmtsSec);
+
+  // TMS
+  const tmsSec = makeSection('TMS');
+  const tmsUrl = inputField('TMS URL', GS.tmsUrl);
+  const tmsPath = inputField('Full path', GS.tmsPath);
+  [tmsUrl, tmsPath].forEach(el => tmsSec.appendChild(el));
+  const tmsBtn = document.createElement('button');
+  tmsBtn.className = 'btn btn-primary';
+  tmsBtn.textContent = 'Load';
+  tmsBtn.addEventListener('click', () => {
+    const url = (tmsUrl.value.trim() + tmsPath.value.trim()).replace(/\/$/, '');
+    if (!url) return;
+    try {
+      const p = createTmsLayer(url);
+      const l = viewer.imageryLayers.addImageryProvider(p);
+      addItem(panel, 'TMS', url.split('/').pop(), () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  tmsSec.appendChild(tmsBtn);
+  tab0.appendChild(tmsSec);
+
+  // Single Image
+  const imgSec = makeSection('Single Image');
+  const imgUrl = inputField('Image URL', CONFIG.data.singleImage || '');
+  imgSec.appendChild(imgUrl);
+  const imgBtn = document.createElement('button');
+  imgBtn.className = 'btn btn-primary';
+  imgBtn.textContent = 'Load as Layer';
+  imgBtn.addEventListener('click', () => {
+    const url = imgUrl.value.trim();
+    if (!url) return;
+    try {
+      const provider = createSingleImageLayer(url);
+      const l = viewer.imageryLayers.addImageryProvider(provider);
+      addItem(panel, 'Image', url.split('/').pop() || url, () => viewer.imageryLayers.remove(l));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  imgSec.appendChild(imgBtn);
+  tab0.appendChild(imgSec);
+
+  // TIFF
+  const tiffSec = makeSection('TIFF (via WMS)');
+  const tiffLayerName = inputField('Layer name', GS.tiffLayer);
+  tiffSec.appendChild(tiffLayerName);
+  const tiffBtn = document.createElement('button');
+  tiffBtn.className = 'btn btn-primary';
+  tiffBtn.textContent = 'Load';
+  tiffBtn.addEventListener('click', () => {
+    const ln = tiffLayerName.value.trim();
+    if (!ln) return;
+    try {
+      const l = loadGeoTiffViaWms(viewer, ln);
+      addItem(panel, 'TIFF', ln, () => viewer.imageryLayers.remove(l));
+      viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(...GS.hubeiCenter) });
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  tiffSec.appendChild(tiffBtn);
+  tab0.appendChild(tiffSec);
+
+  // ==================== TAB 1: 模型 ====================
+  const tab1 = document.createElement('div');
+  tab1.className = 'tab-panel';
+  tab1.style.display = 'none';
+
+  // 3D Tiles
   const tileSec = makeSection('3D Tiles');
   const tileUrl = inputField('Tileset URL', CONFIG.data.building3DTiles);
   tileSec.appendChild(tileUrl);
@@ -126,7 +240,6 @@ export function createDataPanel(viewer) {
   tileBtn.addEventListener('click', async () => {
     const url = tileUrl.value.trim();
     if (!url) return;
-    // Switch to Tianditu base map (WGS84) for proper alignment
     const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
     if (chip) chip.click();
     try {
@@ -135,9 +248,9 @@ export function createDataPanel(viewer) {
     } catch (e) { alert('Load failed: ' + e.message); }
   });
   tileSec.appendChild(tileBtn);
-  body.appendChild(tileSec);
+  tab1.appendChild(tileSec);
 
-  // ---- 武大倾斜模型 ----
+  // WHU Oblique
   const whuSec = makeSection('WHU Oblique');
   const whuUrl = inputField('Tileset URL', CONFIG.data.whuOblique);
   whuSec.appendChild(whuUrl);
@@ -159,88 +272,9 @@ export function createDataPanel(viewer) {
     } catch (e) { alert('Load failed: ' + e.message); }
   });
   whuSec.appendChild(whuBtn);
-  body.appendChild(whuSec);
+  tab1.appendChild(whuSec);
 
-  // ---- WMS ----
-  const wmsSec = makeSection('WMS');
-  const wmsUrl = inputField('WMS URL', GS.wmsUrl);
-  const wmsLayerName = inputField('Layer name', GS.wmsLayer);
-  [wmsUrl, wmsLayerName].forEach(el => wmsSec.appendChild(el));
-  const wmsBtn = document.createElement('button');
-  wmsBtn.className = 'btn btn-primary';
-  wmsBtn.textContent = 'Load';
-  wmsBtn.addEventListener('click', () => {
-    const url = wmsUrl.value.trim(), ln = wmsLayerName.value.trim();
-    if (!url || !ln) return;
-    try {
-      const p = createWmsLayer(url, ln);
-      const l = viewer.imageryLayers.addImageryProvider(p);
-      addItem(panel, 'WMS', ln, () => viewer.imageryLayers.remove(l));
-    } catch (e) { alert('Load failed: ' + e.message); }
-  });
-  wmsSec.appendChild(wmsBtn);
-  body.appendChild(wmsSec);
-
-  // ---- WMTS ----
-  const wmtsSec = makeSection('WMTS');
-  const wmtsUrl = inputField('WMTS URL', GS.wmtsUrl);
-  const wmtsLayerName = inputField('Layer name', GS.wmtsLayer);
-  [wmtsUrl, wmtsLayerName].forEach(el => wmtsSec.appendChild(el));
-  const wmtsBtn = document.createElement('button');
-  wmtsBtn.className = 'btn btn-primary';
-  wmtsBtn.textContent = 'Load';
-  wmtsBtn.addEventListener('click', () => {
-    const url = wmtsUrl.value.trim(), ln = wmtsLayerName.value.trim();
-    if (!url || !ln) return;
-    try {
-      const p = createWmtsLayer(url, ln);
-      const l = viewer.imageryLayers.addImageryProvider(p);
-      addItem(panel, 'WMTS', ln, () => viewer.imageryLayers.remove(l));
-    } catch (e) { alert('Load failed: ' + e.message); }
-  });
-  wmtsSec.appendChild(wmtsBtn);
-  body.appendChild(wmtsSec);
-
-  // ---- TMS ----
-  const tmsSec = makeSection('TMS');
-  const tmsUrl = inputField('TMS URL', GS.tmsUrl);
-  const tmsPath = inputField('Full path', GS.tmsPath);
-  [tmsUrl, tmsPath].forEach(el => tmsSec.appendChild(el));
-  const tmsBtn = document.createElement('button');
-  tmsBtn.className = 'btn btn-primary';
-  tmsBtn.textContent = 'Load';
-  tmsBtn.addEventListener('click', () => {
-    const url = (tmsUrl.value.trim() + tmsPath.value.trim()).replace(/\/$/, '');
-    if (!url) return;
-    try {
-      const p = createTmsLayer(url);
-      const l = viewer.imageryLayers.addImageryProvider(p);
-      addItem(panel, 'TMS', url.split('/').pop(), () => viewer.imageryLayers.remove(l));
-    } catch (e) { alert('Load failed: ' + e.message); }
-  });
-  tmsSec.appendChild(tmsBtn);
-  body.appendChild(tmsSec);
-
-  // ---- TIFF ----
-  const tiffSec = makeSection('TIFF (via WMS)');
-  const tiffLayerName = inputField('Layer name', GS.tiffLayer);
-  tiffSec.appendChild(tiffLayerName);
-  const tiffBtn = document.createElement('button');
-  tiffBtn.className = 'btn btn-primary';
-  tiffBtn.textContent = 'Load';
-  tiffBtn.addEventListener('click', () => {
-    const ln = tiffLayerName.value.trim();
-    if (!ln) return;
-    try {
-      const l = loadGeoTiffViaWms(viewer, ln);
-      addItem(panel, 'TIFF', ln, () => viewer.imageryLayers.remove(l));
-      viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(...GS.hubeiCenter) });
-    } catch (e) { alert('Load failed: ' + e.message); }
-  });
-  tiffSec.appendChild(tiffBtn);
-  body.appendChild(tiffSec);
-
-  // ---- glTF / GLB Model ----
+  // glTF
   const gltfSec = makeSection('glTF Model');
   const gltfUrl = inputField('glTF / GLB URL or path', CONFIG.data.gltf || '');
   gltfSec.appendChild(gltfUrl);
@@ -274,9 +308,43 @@ export function createDataPanel(viewer) {
     } catch (e) { alert('Load failed: ' + e.message); }
   });
   gltfSec.appendChild(gltfBtn);
-  body.appendChild(gltfSec);
+  tab1.appendChild(gltfSec);
 
-  // ---- CZML ----
+  // BIM
+  const bimSec = makeSection('BIM Model');
+  const bimUrl = inputField('BIM glTF URL (empty = demo)', CONFIG.data.bim || '');
+  bimSec.appendChild(bimUrl);
+  const bimBtnRow = document.createElement('div');
+  bimBtnRow.style.cssText = 'display:flex;gap:4px;';
+  function makeBimBtn(label, color, url) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 8px;font-size:10px;background:${color};color:#fff;`;
+    btn.addEventListener('click', async () => {
+      try {
+        const model = await loadBimModel(viewer, url);
+        addItem(panel, 'BIM', url || 'Demo Building', () => removeBimModel(viewer, model));
+      } catch (e) { alert('Load failed: ' + e.message); }
+    });
+    return btn;
+  }
+  bimBtnRow.appendChild(makeBimBtn('Demo', '#2a9d8f', ''));
+  bimBtnRow.appendChild(makeBimBtn('Load URL', '#5b9bd5', bimUrl.value.trim()));
+  bimUrl.addEventListener('input', () => {
+    bimBtnRow.children[1].onclick = async () => {
+      const u = bimUrl.value.trim();
+      if (!u) return;
+      try {
+        const model = await loadBimModel(viewer, u);
+        addItem(panel, 'BIM', u.split('/').pop() || u, () => removeBimModel(viewer, model));
+      } catch (e) { alert('Load failed: ' + e.message); }
+    };
+  });
+  bimSec.appendChild(bimBtnRow);
+  tab1.appendChild(bimSec);
+
+  // CZML
   const czmlSec = makeSection('CZML');
   const czmlUrl = inputField('CZML URL', CONFIG.data.czml || '');
   czmlSec.appendChild(czmlUrl);
@@ -291,7 +359,7 @@ export function createDataPanel(viewer) {
     if (!file) return;
     try {
       const ds = await loadCzmlFromFile(viewer, file);
-      if (ds) addItem(panel, 'CZML', file.name, () => removeCzmlDs(viewer, ds));
+      if (ds) addItem(panel, 'CZML', file.name, () => removeDataSource(viewer, ds));
     } catch (e) { alert('Load failed: ' + e.message); }
     czmlFileInput.value = '';
   });
@@ -305,41 +373,94 @@ export function createDataPanel(viewer) {
     if (!url) return;
     try {
       const ds = await loadCzml(viewer, url);
-      if (ds) addItem(panel, 'CZML', url.split('/').pop() || url, () => removeCzmlDs(viewer, ds));
+      if (ds) addItem(panel, 'CZML', url.split('/').pop() || url, () => removeDataSource(viewer, ds));
     } catch (e) { alert('Load failed: ' + e.message); }
   });
   czmlSec.appendChild(czmlBtn);
-  body.appendChild(czmlSec);
+  tab1.appendChild(czmlSec);
 
-  // ---- Single Image Base Map ----
-  const imgSec = makeSection('Single Image');
-  const imgUrl = inputField('Image URL', CONFIG.data.singleImage || '');
-  imgSec.appendChild(imgUrl);
-  const imgBtn = document.createElement('button');
-  imgBtn.className = 'btn btn-primary';
-  imgBtn.textContent = 'Load as Layer';
-  imgBtn.addEventListener('click', () => {
-    const url = imgUrl.value.trim();
-    if (!url) return;
+  // ==================== TAB 2: 其他 ====================
+  const tab2 = document.createElement('div');
+  tab2.className = 'tab-panel';
+  tab2.style.display = 'none';
+
+  // Vector
+  const vecSec = makeSection('Vector Data');
+  const uploadZone = document.createElement('label');
+  uploadZone.className = 'upload-zone';
+  uploadZone.innerHTML = '<span class="upload-icon">+</span>GeoJSON / KML';
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.geojson,.json,.kml,.kmz';
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
     try {
-      const provider = createSingleImageLayer(url);
-      const l = viewer.imageryLayers.addImageryProvider(provider);
-      addItem(panel, 'Image', url.split('/').pop() || url, () => viewer.imageryLayers.remove(l));
+      let ds;
+      if (ext === 'kml' || ext === 'kmz') ds = await loadKmlFromFile(viewer, file);
+      else ds = await loadGeoJsonFromFile(viewer, file);
+      if (ds) addItem(panel, 'Vector', file.name, () => removeDataSource(viewer, ds));
     } catch (e) { alert('Load failed: ' + e.message); }
+    fileInput.value = '';
   });
-  imgSec.appendChild(imgBtn);
-  body.appendChild(imgSec);
+  uploadZone.appendChild(fileInput);
+  vecSec.appendChild(uploadZone);
+  tab2.appendChild(vecSec);
 
-  // ---- Terrain Toggle ----
+  // 3D LOGO
+  const logoSec = makeSection('3D LOGO');
+  const logoInput = inputField('Your Name', CONFIG.data.logoName || '');
+  logoSec.appendChild(logoInput);
+  const logoBtn = document.createElement('button');
+  logoBtn.className = 'btn btn-primary';
+  logoBtn.textContent = 'Place LOGO at WHU';
+  logoBtn.addEventListener('click', () => {
+    const name = logoInput.value.trim() || '未命名';
+    try {
+      const pos = CONFIG.logoPosition;
+      const entity = place3DLogo(viewer, name,
+        pos ? { lon: pos[0], lat: pos[1], alt: pos[2] } : {});
+      addItem(panel, 'LOGO', name, () => remove3DLogo(viewer, entity));
+    } catch (e) { alert('Place LOGO failed: ' + e.message); }
+  });
+  logoSec.appendChild(logoBtn);
+  tab2.appendChild(logoSec);
+
+  // Vehicle
+  const vehSec = makeSection('Vehicle Sim');
+  const vehRow = document.createElement('div');
+  vehRow.style.cssText = 'display:flex;gap:4px;';
+  function vehBtn(label, color, onClick) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm';
+    btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 8px;font-size:10px;background:${color};color:#fff;`;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+  vehRow.appendChild(vehBtn('Start', '#2a9d8f', () => {
+    try {
+      startVehicleSimulation(viewer);
+      addItem(panel, 'Vehicle', 'Car on WHU road', () => stopVehicleSimulation(viewer));
+    } catch (e) { alert('Sim failed: ' + e.message); }
+  }));
+  vehRow.appendChild(vehBtn('Stop', '#e76f51', () => {
+    stopVehicleSimulation(viewer);
+    items = items.filter((item) => item.type !== 'Vehicle');
+    renderList(panel);
+  }));
+  vehSec.appendChild(vehRow);
+  tab2.appendChild(vehSec);
+
+  // Terrain
   const terrainSec = makeSection('Terrain');
   const terrainStatus = document.createElement('div');
   terrainStatus.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:6px;';
   terrainStatus.textContent = 'Flat (ellipsoid)';
   terrainSec.appendChild(terrainStatus);
-
   const terrainRow = document.createElement('div');
   terrainRow.style.cssText = 'display:flex;gap:4px;';
-
   function terrainBtn(label, onClick) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-sm';
@@ -348,15 +469,13 @@ export function createDataPanel(viewer) {
     btn.addEventListener('click', onClick);
     return btn;
   }
-
   terrainRow.appendChild(terrainBtn('Flat', () => {
     viewer.terrainProvider = createDefaultTerrain();
     terrainStatus.textContent = 'Flat (ellipsoid)';
   }));
-
   if (CONFIG.cesiumIonToken) {
     terrainRow.appendChild(terrainBtn('Online', async () => {
-      terrainStatus.textContent = 'Loading World Terrain...';
+      terrainStatus.textContent = 'Loading...';
       try {
         const wt = await Cesium.createWorldTerrainAsync();
         viewer.terrainProvider = wt;
@@ -367,19 +486,22 @@ export function createDataPanel(viewer) {
       }
     }));
   }
-
   if (CONFIG.localTerrainUrl) {
     terrainRow.appendChild(terrainBtn('Local', () => {
       viewer.terrainProvider = createLocalTerrain(CONFIG.localTerrainUrl);
       terrainStatus.textContent = 'Local Terrain';
     }));
   }
-
   terrainSec.appendChild(terrainRow);
-  body.appendChild(terrainSec);
+  tab2.appendChild(terrainSec);
 
-  // ---- Loaded list ----
-  const listSec = makeSection('Loaded Data');
+  // Append all tab panels
+  body.appendChild(tab0);
+  body.appendChild(tab1);
+  body.appendChild(tab2);
+
+  // ---- Loaded list (always visible) ----
+  const listSec = makeSection('已加载');
   const listEl = document.createElement('div');
   listEl.className = 'data-list';
   listEl.innerHTML = '<div class="empty">&mdash; No data loaded &mdash;</div>';
@@ -395,4 +517,3 @@ export function createDataPanel(viewer) {
     destroy() { items = []; panel.remove(); },
   };
 }
-

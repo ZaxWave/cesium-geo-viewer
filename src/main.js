@@ -69,3 +69,22 @@ viewer.camera.setView({
 // 暴露到全局方便调试 [cite: 94]
 window.__viewer = viewer;
 window.__layerSwitcher = layerSwitcher;
+
+// 5. 鼠标坐标追踪 — 显示在右下角
+(function setupCoordinateTracker() {
+  const div = document.createElement('div');
+  div.className = 'coord-tracker';
+  div.innerHTML = 'Lon: --- &nbsp; Lat: ---';
+  document.body.appendChild(div);
+
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction((movement) => {
+    const cartesian = viewer.scene.pickPosition(movement.endPosition);
+    if (Cesium.defined(cartesian)) {
+      const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+      const lon = Cesium.Math.toDegrees(cartographic.longitude).toFixed(6);
+      const lat = Cesium.Math.toDegrees(cartographic.latitude).toFixed(6);
+      div.innerHTML = `Lon: ${lon} &nbsp;&nbsp; Lat: ${lat}`;
+    }
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+})();
