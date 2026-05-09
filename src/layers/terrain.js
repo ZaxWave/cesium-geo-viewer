@@ -16,7 +16,7 @@ export function createWorldTerrain() {
 
 export async function createLocalTerrain(url) {
   return await Cesium.CesiumTerrainProvider.fromUrl(url, {
-    requestVertexNormals: true,
+    requestVertexNormals: false,
     requestWaterMask: false,
   });
 }

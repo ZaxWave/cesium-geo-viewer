@@ -52,8 +52,8 @@ async function initializeScene() {
     // 强制清空 Cesium 默认加载的影像图层
     viewer.imageryLayers.removeAll();
 
-    // 加载默认底图 (OSM)
-    const defaultLayer = BASE_LAYERS.osm;
+    // 加载默认底图 (高德影像)
+    const defaultLayer = BASE_LAYERS.gaode_img;
     const imageryProvider = defaultLayer.factory(CONFIG);
     viewer.imageryLayers.addImageryProvider(imageryProvider);
 
@@ -73,7 +73,7 @@ async function initializeScene() {
 initializeScene();
 
 // 3. UI 挂载
-const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'osm');
+const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
 const dataPanel = createDataPanel(viewer);
 
 // 4. 设置初始视角：武大信息学部
