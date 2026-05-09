@@ -190,6 +190,29 @@ export function createDataPanel(viewer) {
   tmsSec.appendChild(tmsBtn);
   tab0.appendChild(tmsSec);
 
+  // WHU DOM — orthophoto TMS tiles
+  const whuDomSec = makeSection('WHU DOM (Orthophoto)');
+  const whuDomBtn = document.createElement('button');
+  whuDomBtn.className = 'btn btn-primary';
+  whuDomBtn.textContent = 'Load WHU Orthophoto';
+  whuDomBtn.addEventListener('click', () => {
+    try {
+      const provider = new Cesium.TileMapServiceImageryProvider({
+        url: CONFIG.whuDomUrl,
+        credit: 'WHU DOM',
+      });
+      const l = viewer.imageryLayers.addImageryProvider(provider);
+      addItem(panel, 'DOM', 'WHU Orthophoto', () => viewer.imageryLayers.remove(l));
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(
+          CONFIG.whuCenter[0], CONFIG.whuCenter[1], 1200
+        ),
+      });
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  whuDomSec.appendChild(whuDomBtn);
+  tab0.appendChild(whuDomSec);
+
   // Single Image
   const imgSec = makeSection('Single Image');
   const imgUrl = inputField('Image URL', CONFIG.data.singleImage || '');
@@ -243,7 +266,7 @@ export function createDataPanel(viewer) {
   tileBtn.addEventListener('click', async () => {
     const url = tileUrl.value.trim();
     if (!url) return;
-    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
+    const chip = document.querySelector('.layer-chip[data-layer-id="gaode_img"]');
     if (chip) chip.click();
     try {
       const tileset = await load3DTileset(viewer, url);
@@ -263,7 +286,7 @@ export function createDataPanel(viewer) {
   whuBtn.addEventListener('click', async () => {
     const url = whuUrl.value.trim();
     if (!url) return;
-    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
+    const chip = document.querySelector('.layer-chip[data-layer-id="gaode_img"]');
     if (chip) chip.click();
     try {
       const tileset = await load3DTileset(viewer, url);
@@ -565,6 +588,11 @@ export function createDataPanel(viewer) {
       try {
         viewer.terrainProvider = await createLocalTerrain(CONFIG.localTerrainUrl);
         terrainStatus.textContent = 'Local Terrain (WHU)';
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(
+            CONFIG.whuCenter[0], CONFIG.whuCenter[1], 2000
+          ),
+        });
       } catch (e) {
         terrainStatus.textContent = 'Failed: ' + e.message;
         viewer.terrainProvider = createDefaultTerrain();

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "data-server": "python scripts/data_server.py 8082"
   },
   "devDependencies": {
     "vite": "^4.4.5",

@@ -76,13 +76,15 @@ initializeScene();
 const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'osm');
 const dataPanel = createDataPanel(viewer);
 
-// 4. 设置初始视角：张家界山区 (展示地形效果) [cite: 26, 117, 120]
+// 4. 设置初始视角：武大信息学部
 viewer.camera.setView({
-  destination: Cesium.Cartesian3.fromDegrees(110.48, 29.35, 8000),
-  orientation: { 
-    heading: Cesium.Math.toRadians(0), 
-    pitch: Cesium.Math.toRadians(-45), 
-    roll: 0 
+  destination: Cesium.Cartesian3.fromDegrees(
+    CONFIG.whuCenter[0], CONFIG.whuCenter[1], 2000
+  ),
+  orientation: {
+    heading: Cesium.Math.toRadians(0),
+    pitch: Cesium.Math.toRadians(-45),
+    roll: 0
   },
 });
 

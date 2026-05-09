@@ -23,7 +23,9 @@ export const CONFIG = Object.freeze({
   },
 
   // Local terrain tiles URL (e.g. from CesiumLab terrain output)
-  localTerrainUrl: '',
+  localTerrainUrl: '/data/terrain_whu',
+  // WHU DOM (orthophoto) TMS tiles — from CesiumLab 影像切片
+  whuDomUrl: '/data/whu_terrain',
 
   // Data paths relative to /public/
   data: {
