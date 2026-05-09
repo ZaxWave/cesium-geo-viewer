@@ -22,10 +22,12 @@ export const CONFIG = Object.freeze({
     hubeiCenter: [114.30, 30.60, 15000],
   },
 
+  // Data server for large static files (run: npm run data-server)
+  dataServer: 'http://localhost:8082',
   // Local terrain tiles URL (e.g. from CesiumLab terrain output)
-  localTerrainUrl: '/data/terrain_whu',
+  localTerrainUrl: 'http://localhost:8082/data/terrain_whu',
   // WHU DOM (orthophoto) TMS tiles — from CesiumLab 影像切片
-  whuDomUrl: '/data/whu_terrain',
+  whuDomUrl: 'http://localhost:8082/public/data/whu_terrain',
 
   // Data paths relative to /public/
   data: {

@@ -11,7 +11,7 @@ export default defineConfig({
       },
     },
     watch: {
-      ignored: ['**/public/data/terrain_whu/**'],
+      ignored: ['**/public/data/**'],
     },
   },
 })

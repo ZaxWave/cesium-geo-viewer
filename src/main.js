@@ -27,6 +27,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 
 const scController = viewer.scene.screenSpaceCameraController;
 scController.enableRotate = true;
+
 scController.enableTranslate = true;
 scController.enableZoom = true;
 scController.enableTilt = true;
