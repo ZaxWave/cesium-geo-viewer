@@ -6,7 +6,7 @@
 
 | 模块 | 方案 |
 |---|---|
-| 三维引擎 | CesiumJS ^1.110 |
+| 三维引擎 | CesiumJS ^1.140 |
 | 构建工具 | Vite 4 |
 | OGC 服务 | GeoServer (WMS / WMTS / TMS) |
 | 数据处理 | CesiumLab (osgb→3DTiles, DEM terrain slicing) |
@@ -16,9 +16,13 @@
 
 ```bash
 npm install
-npm run dev
-# → http://localhost:5173
+# 1. 启动数据服务器（为地形/倾斜模型等海量切片提供 HTTP 服务）
+npm run data-server   # → http://localhost:8082
+# 2. 另开终端，启动开发服务器
+npm run dev           # → http://localhost:5173
 ```
+
+> 注意：`public/data/` 目录切勿放置超过几百个文件的大文件夹（如 CesiumLab 切片的数千张瓦片），否则 Vite 会假死。海量切片应放在项目根目录 `data/` 下，通过数据服务器访问。
 
 ## 项目结构
 
@@ -46,12 +50,14 @@ CesiumProject/
 │     ├─ layerSwitcher.js  # 底图切换面板（芯片按钮）
 │     └─ dataPanel.js      # 数据加载面板（分 Tab：影像/模型/其他）
 ├─ public/data/
-│  ├─ 3DTiles/             # 3D Tiles（点云/建筑白膜）
+│  ├─ 3DTiles/             # 3D Tiles（点云/建筑白膜，小数据）
 │  ├─ 3DTiles_gcj02/       # GCJ-02 版本点云
-│  ├─ whu_oblique/         # 武汉大学倾斜摄影模型
 │  ├─ Models/              # glTF/GLB 模型文件
 │  ├─ CZML/                # CZML 动态数据（卫星轨迹等）
 │  └─ Vector/              # 矢量数据 & 底图图片
+├─ data/                    # 海量切片数据（由 data-server 提供服务）
+│  ├─ whu_oblique/         # 武汉大学倾斜摄影模型 (3D Tiles)
+│  └─ terrain_whu/         # CesiumLab 地形瓦片
 ├─ scripts/
 │  ├─ convert_ifc.py       # IFC → GLB 转换（保留法线 & 颜色）
 │  ├─ generate_terrain.py  # DEM GeoTIFF → QuantizedMesh 地形瓦片
@@ -144,25 +150,32 @@ CesiumProject/
     xianCenter, hubeiCenter, // 区域相机位置
   },
 
-  localTerrainUrl: '',       // CesiumLab 地形瓦片路径
+  localTerrainUrl: 'http://localhost:8082/data/terrain_whu',
+  whuDomUrl: 'http://localhost:8082/public/data/whu_terrain',
   whuCenter: [114.35, 30.53, 800],   // 武大倾斜模型相机
   logoPosition: [114.356, 30.527, 0], // 3D LOGO 放置坐标
 
   data: {
     building3DTiles,          // 3D Tiles 路径
     pointCloudGCJ02Offset,    // GCJ-02 点云微调偏移
-    whuOblique,               // 武大倾斜模型
+    whuOblique,               // 武大倾斜模型（走 data-server）
     gltf, czml, bim,          // 预设路径
   },
 }
+
+// 海量切片数据（whu_oblique、terrain 等）通过 data-server 提供，
+// 在 config.js 中配置为 http://localhost:8082/data/... 绝对路径。
 ```
 
 ## 数据处理工作流
 
-1. **倾斜摄影** — osgb → CesiumLab → 3D Tiles → `public/data/whu_oblique/`
-2. **地形切片** — DEM GeoTIFF → CesiumLab (ctb/散列) → `public/data/terrain_whu/`
+1. **倾斜摄影** — osgb → CesiumLab → 3D Tiles → `data/whu_oblique/`（项目根目录下，由 data-server 提供）
+2. **地形切片** — DEM GeoTIFF → CesiumLab (ctb/散列) → `data/terrain_whu/`
 3. **IFC 模型** — `python scripts/convert_ifc.py input.ifc output.glb` → `public/data/Models/`
 4. **CGCS2000 3DTiles** — 如需叠加 GCJ-02 点云，通过 `pointCloudGCJ02Offset` 微调
+5. **DOM 影像切片** — CesiumLab 影像瓦片 → `public/data/whu_terrain/`（或移入 `data/` 走 data-server）
+
+> 海量切片（倾斜摄影、地形、DOM）均走 `data/` + data-server，不可放入 `public/data/` 否则 Vite 会因文件数过多而假死。
 
 ## 说明
 

@@ -3,6 +3,9 @@ import cesium from 'vite-plugin-cesium'
 
 export default defineConfig({
   plugins: [cesium()],
+  optimizeDeps: {
+    include: ['cesium'],
+  },
   server: {
     proxy: {
       '/geoserver': {

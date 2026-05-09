@@ -38,7 +38,7 @@ export const CONFIG = Object.freeze({
     pointCloudGCJ02Offset: { lon: 0, lat: 0 },
     geotiff: '/data/raster/sample.tif',
     // 武汉大学信息学部倾斜摄影模型 (3D Tiles)
-    whuOblique: '/data/whu_oblique/tileset.json',
+    whuOblique: 'http://localhost:8082/data/whu_oblique/tileset.json',
     gltf: '/data/Models/IfcOpenHouse_v2.glb',
     czml: '/data/CZML/e8fbf-main/satelliteTY/satelliteTY/czml/satellite.czml',
     singleImage: '/data/Vector/sample.jpg',
