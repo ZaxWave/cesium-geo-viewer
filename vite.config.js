@@ -10,5 +10,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    watch: {
+      ignored: ['**/public/data/terrain_whu/**'],
+    },
   },
 })
