@@ -6,7 +6,7 @@
 
 | 模块 | 方案 |
 |---|---|
-| 三维引擎 | CesiumJS ^1.140 |
+| 三维引擎 | CesiumJS ^1.110 |
 | 构建工具 | Vite 4 |
 | OGC 服务 | GeoServer (WMS / WMTS / TMS) |
 | 数据处理 | CesiumLab (osgb→3DTiles, DEM terrain slicing) |
@@ -44,7 +44,7 @@ CesiumProject/
 │  │  ├─ model.js          # glTF / GLB 模型加载（含 silhouette 描边）
 │  │  ├─ bim.js            # BIM 模型加载（IFC→GLB，含 demo building 回退）
 │  │  ├─ logo.js           # 3D 文字 LOGO 放置
-│  │  ├─ singleImage.js    # 单张图片底图叠加
+│  │  ├─ singleImage.js    # 单张图片底图（底图切换 & 图层叠加）
 │  │  └─ vehicle.js        # 路径点选 + 3D 车辆行驶模拟
 │  └─ ui/
 │     ├─ layerSwitcher.js  # 底图切换面板（芯片按钮）
@@ -71,10 +71,11 @@ CesiumProject/
 
 ### 底图切换
 
-- 高德影像/矢量（GCJ-02 自动纠偏）
-- 天地图影像/矢量
+- 高德影像/矢量（GCJ-02 自动纠偏为 WGS84）
+- 天地图影像/矢量（GCJ-02，通过 Vite 代理绕过 CORS）
 - OpenStreetMap
 - Bing Maps / Mapbox（需 Token）
+- 单张底图（Blue Marble 卫星影像）
 
 ### 数据加载（三栏 Tab）
 
@@ -82,7 +83,7 @@ CesiumProject/
 | 格式 | 说明 |
 |------|------|
 | WMS / WMTS / TMS | GeoServer OGC 服务 |
-| Single Image | 单张图片底图叠加 |
+| Single Image | 单张图片底图（支持底图切换 & 叠加加载）|
 | GeoTIFF | 通过 GeoServer WMS 加载 |
 
 **Tab 2 — 模型**
@@ -106,8 +107,10 @@ CesiumProject/
 ### 地形控制
 
 - **Flat** — 平面椭球，适合点云/倾斜模型精确定位
-- **Online** — Cesium World Terrain（需 `cesiumIonToken`）
-- **Local** — CesiumLab 切片本地地形（需 `localTerrainUrl`）
+- **Online** — Cesium World Terrain，WGS84，vertex normals 已关闭（需 `cesiumIonToken`）
+- **Local** — CesiumLab 切片本地地形，GCJ-02（需 `localTerrainUrl`）
+
+> **坐标系对齐规则：** 在线地形是 WGS84，必须配高德（WGS84 纠偏后）；本地地形是 GCJ-02，必须配天地图（GCJ-02 未纠偏）。交叉使用会导致 ~300-500m 偏移。
 
 ### 相机操作
 
@@ -129,7 +132,11 @@ CesiumProject/
 
 ### GCJ-02 坐标纠偏
 
-高德底图通过瓦片坐标映射自动从 GCJ-02 纠偏回 WGS84，支持双向坐标转换（`gcj02.js`）。
+高德底图通过瓦片坐标映射自动从 GCJ-02 纠偏回 WGS84（`createGcj02CorrectedGaodeProvider`），`gcj02.js` 同时提供：
+- `wgs84ToGcj02` / `gcj02ToWgs84` 双向坐标转换
+- `createGcj02CorrectedTiandituProvider` 天地图纠偏（预留，当前天地图保持 GCJ-02 以对齐本地地形和 3D Tiles）
+
+加载 3D Tiles 时自动切换底图为天地图（二者同属 GCJ-02 坐标系对齐）。
 
 ## 配置说明 (`src/config.js`)
 
@@ -141,6 +148,7 @@ CesiumProject/
   mapboxToken: '',           // Mapbox access token
 
   geoserverUrl: '/geoserver', // Vite 代理 → GeoServer
+                             // 天地图也通过 /tianditu 代理绕过 CORS
 
   geoserver: {
     wmsUrl, wmsLayer,        // WMS 预设
@@ -159,7 +167,7 @@ CesiumProject/
     building3DTiles,          // 3D Tiles 路径
     pointCloudGCJ02Offset,    // GCJ-02 点云微调偏移
     whuOblique,               // 武大倾斜模型（走 data-server）
-    gltf, czml, bim,          // 预设路径
+    gltf, czml, bim, singleImage, // 预设路径
   },
 }
 

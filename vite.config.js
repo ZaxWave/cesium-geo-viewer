@@ -12,6 +12,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/tianditu': {
+        target: 'https://t0.tianditu.gov.cn',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/tianditu/, '/DataServer'),
+        headers: { Referer: 'https://www.tianditu.gov.cn/' },
+      },
     },
     watch: {
       ignored: ['**/public/data/**'],

@@ -25,7 +25,6 @@ export async function load3DTileset(viewer, url, options = {}) {
   // Manual offset for fine-tuning GCJ-02 / datum alignment
   if (offset) {
     await tileset.readyPromise;
-    // Ensure bounding sphere is fully resolved before reading center
     const center = tileset.boundingSphere?.center;
     if (!center || !Cesium.defined(center) ||
         (center.x === 0 && center.y === 0 && center.z === 0)) {

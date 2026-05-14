@@ -266,7 +266,7 @@ export function createDataPanel(viewer) {
   tileBtn.addEventListener('click', async () => {
     const url = tileUrl.value.trim();
     if (!url) return;
-    const chip = document.querySelector('.layer-chip[data-layer-id="gaode_img"]');
+    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
     if (chip) chip.click();
     try {
       const tileset = await load3DTileset(viewer, url);
@@ -286,7 +286,7 @@ export function createDataPanel(viewer) {
   whuBtn.addEventListener('click', async () => {
     const url = whuUrl.value.trim();
     if (!url) return;
-    const chip = document.querySelector('.layer-chip[data-layer-id="gaode_img"]');
+    const chip = document.querySelector('.layer-chip[data-layer-id="tianditu_img"]');
     if (chip) chip.click();
     try {
       const tileset = await load3DTileset(viewer, url);
