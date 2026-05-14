@@ -9,7 +9,7 @@ export function createDefaultTerrain() {
 export function createWorldTerrain() {
   return new Cesium.CesiumTerrainProvider({
     url: Cesium.IonResource.fromAssetId(1),
-    requestVertexNormals: true,
+    requestVertexNormals: false,
     requestWaterMask: true,
   });
 }

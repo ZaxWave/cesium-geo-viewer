@@ -40,7 +40,7 @@ export const CONFIG = Object.freeze({
     // 武汉大学信息学部倾斜摄影模型 (3D Tiles)
     whuOblique: 'http://localhost:8082/data/whu_oblique/tileset.json',
     gltf: '/data/Models/IfcOpenHouse_v2.glb',
-    czml: '/data/CZML/e8fbf-main/satelliteTY/satelliteTY/czml/satellite.czml',
+    czml: '/data/CZML/satellites/satellite.czml',
     singleImage: '/data/Vector/sample.jpg',
     // BIM model (IFC → GLB)
     bim: '/data/Models/rac_basic_sample_project_v2.glb',
@@ -62,5 +62,6 @@ export const CONFIG = Object.freeze({
     'osm',
     'bing',
     'mapbox',
+    'single_image',
   ],
 });

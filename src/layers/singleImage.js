@@ -1,10 +1,17 @@
 import * as Cesium from 'cesium';
 
-// Single image as base map overlay
 export function createSingleImageLayer(url, options = {}) {
-  return new Cesium.SingleTileImageryProvider({
+  const provider = new Cesium.SingleTileImageryProvider({
     url,
     rectangle: options.rectangle || Cesium.Rectangle.fromDegrees(-180, -90, 180, 90),
+    tileWidth: options.tileWidth || 2048,
+    tileHeight: options.tileHeight || 1024,
     ...options,
   });
+
+  provider.errorEvent.addEventListener((error) => {
+    console.error('SingleImage load error:', error);
+  });
+
+  return provider;
 }

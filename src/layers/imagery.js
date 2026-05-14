@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import { createGcj02CorrectedGaodeProvider } from './gcj02.js';
+import { createSingleImageLayer } from './singleImage.js';
 
 // ---------- Bing ----------
 export function createBingMapsLayer(key, mapStyle) {
@@ -13,16 +14,14 @@ export function createBingMapsLayer(key, mapStyle) {
 // ---------- Tianditu ----------
 // DataServer XYZ format (works with UrlTemplateImageryProvider)
 // Layer: img_w=影像, vec_w=矢量, cia_w=影像注记, cva_w=矢量注记
+// Proxied through Vite in dev to avoid CORS issues
 const TIANDITU_URL =
-  'https://t{s}.tianditu.gov.cn/DataServer?T={layer}&x={x}&y={y}&l={z}&tk={tk}';
-
-const TIANDITU_SUBDOMAINS = ['0', '1', '2', '3', '4', '5', '6', '7'];
+  '/tianditu?T={layer}&x={x}&y={y}&l={z}&tk={tk}';
 
 export function createTiandituLayer(type, token) {
   const url = TIANDITU_URL.replace('{layer}', type).replace('{tk}', token);
   return new Cesium.UrlTemplateImageryProvider({
     url,
-    subdomains: TIANDITU_SUBDOMAINS,
     maximumLevel: 18,
   });
 }
@@ -99,5 +98,11 @@ export const BASE_LAYERS = {
     factory: (c) => createMapboxLayer(c.mapboxToken, 'satellite-v9'),
     requiresToken: true,
     tokenKey: 'mapboxToken',
+  },
+  single_image: {
+    id: 'single_image',
+    name: '单张底图',
+    factory: (c) => createSingleImageLayer(c.data.singleImage),
+    requiresToken: false,
   },
 };

@@ -86,8 +86,32 @@ export function createGcj02CorrectedGaodeProvider(style, subdomains) {
     if (!isInChina(wgsLon, wgsLat)) {
       return _requestImage(x, y, level, request);
     }
-    // Convert WGS84 center → GCJ-02 → GCJ-02 tile coordinates
-    // This tells us which Gaode tile to fetch to align with WGS84
+    const [gcjLon, gcjLat] = wgs84ToGcj02(wgsLon, wgsLat);
+    const [gcjX, gcjY] = lonLatToTile(gcjLon, gcjLat, level);
+    const clampedX = Math.max(0, Math.min((1 << level) - 1, gcjX));
+    const clampedY = Math.max(0, Math.min((1 << level) - 1, gcjY));
+    return _requestImage(clampedX, clampedY, level, request);
+  };
+
+  return base;
+}
+
+// GCJ-02 corrected Tianditu provider — same principle as Gaode:
+// pull GCJ-02 tiles back to WGS84 alignment
+export function createGcj02CorrectedTiandituProvider(urlTemplate, subdomains, maximumLevel) {
+  const base = new Cesium.UrlTemplateImageryProvider({
+    url: urlTemplate,
+    subdomains: subdomains || [],
+    maximumLevel: maximumLevel || 18,
+  });
+
+  const _requestImage = base.requestImage.bind(base);
+
+  base.requestImage = function (x, y, level, request) {
+    const [wgsLon, wgsLat] = tileCenterToLonLat(x, y, level);
+    if (!isInChina(wgsLon, wgsLat)) {
+      return _requestImage(x, y, level, request);
+    }
     const [gcjLon, gcjLat] = wgs84ToGcj02(wgsLon, wgsLat);
     const [gcjX, gcjY] = lonLatToTile(gcjLon, gcjLat, level);
     const clampedX = Math.max(0, Math.min((1 << level) - 1, gcjX));
