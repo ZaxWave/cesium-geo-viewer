@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 import { CONFIG } from '../config.js';
 
 // ---------- WMS ----------

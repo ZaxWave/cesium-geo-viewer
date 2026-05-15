@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 const PI = Math.PI;
 const A = 6378245.0;

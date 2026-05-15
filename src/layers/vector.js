@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 const DEFAULT_STYLE = {
   stroke: Cesium.Color.fromCssColorString('#FFD700'),

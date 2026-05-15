@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 const BUILDING_DEFAULTS = {
   maximumScreenSpaceError: 16,

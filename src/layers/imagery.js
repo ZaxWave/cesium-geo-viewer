@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 import { createGcj02CorrectedGaodeProvider } from './gcj02.js';
 import { createSingleImageLayer } from './singleImage.js';
 

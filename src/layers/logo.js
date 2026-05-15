@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 // 3D wall sign — box entities with eyeOffset to prevent occlusion
 export function place3DLogo(viewer, name, options = {}) {

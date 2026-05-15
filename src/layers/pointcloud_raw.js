@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 // Parse raw point cloud files and render as Cesium point primitives
 export async function loadRawPointCloud(viewer, url, options = {}) {

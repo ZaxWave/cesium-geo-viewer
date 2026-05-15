@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 // No-op terrain — always works, no token needed
 export function createDefaultTerrain() {
