@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 import { CONFIG } from '../config.js';
 import { load3DTileset, removeTileset } from '../layers/pointcloud.js';
 import { loadGeoJsonFromFile, loadKmlFromFile, removeDataSource, loadCzml, loadCzmlFromFile } from '../layers/vector.js';
@@ -338,35 +338,44 @@ export function createDataPanel(viewer) {
 
   // BIM
   const bimSec = makeSection('BIM Model');
-  const bimUrl = inputField('BIM glTF URL (empty = demo)', CONFIG.data.bim || '');
-  bimSec.appendChild(bimUrl);
-  const bimBtnRow = document.createElement('div');
-  bimBtnRow.style.cssText = 'display:flex;gap:4px;';
-  function makeBimBtn(label, color, url) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-sm';
-    btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 8px;font-size:10px;background:${color};color:#fff;`;
-    btn.addEventListener('click', async () => {
-      try {
-        const model = await loadBimModel(viewer, url);
-        addItem(panel, 'BIM', url || 'Demo Building', () => removeBimModel(viewer, model));
-      } catch (e) { alert('Load failed: ' + e.message); }
-    });
-    return btn;
-  }
-  bimBtnRow.appendChild(makeBimBtn('Demo', '#2a9d8f', ''));
-  bimBtnRow.appendChild(makeBimBtn('Load URL', '#5b9bd5', bimUrl.value.trim()));
-  bimUrl.addEventListener('input', () => {
-    bimBtnRow.children[1].onclick = async () => {
-      const u = bimUrl.value.trim();
-      if (!u) return;
-      try {
-        const model = await loadBimModel(viewer, u);
-        addItem(panel, 'BIM', u.split('/').pop() || u, () => removeBimModel(viewer, model));
-      } catch (e) { alert('Load failed: ' + e.message); }
-    };
+  const bimSelect = document.createElement('select');
+  bimSelect.className = 'input-field';
+  const bimPresets = [
+    { label: 'IfcOpenHouse (小别墅)', path: '/data/Models/IfcOpenHouse/IfcOpenHouse.gltf' },
+    { label: 'rac_basic_sample_project (办公楼)', path: '/data/Models/rac_basic_sample_project/rac_basic_sample_project.gltf' },
+  ];
+  bimPresets.forEach((p) => {
+    const opt = document.createElement('option');
+    opt.value = p.path;
+    opt.textContent = p.label;
+    bimSelect.appendChild(opt);
   });
+  bimSec.appendChild(bimSelect);
+  const bimBtnRow = document.createElement('div');
+  bimBtnRow.style.cssText = 'display:flex;gap:4px;margin-top:4px;';
+  const bimLoadBtn = document.createElement('button');
+  bimLoadBtn.className = 'btn btn-primary';
+  bimLoadBtn.textContent = 'Load BIM';
+  bimLoadBtn.addEventListener('click', async () => {
+    const url = bimSelect.value;
+    if (!url) return;
+    try {
+      const model = await loadBimModel(viewer, url);
+      addItem(panel, 'BIM', url.split('/').pop() || url, () => removeBimModel(viewer, model));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  bimBtnRow.appendChild(bimLoadBtn);
+  const bimDemoBtn = document.createElement('button');
+  bimDemoBtn.className = 'btn btn-sm';
+  bimDemoBtn.textContent = 'Demo';
+  bimDemoBtn.style.cssText = 'background:#2a9d8f;color:#fff;padding:5px 12px;font-size:10px;';
+  bimDemoBtn.addEventListener('click', async () => {
+    try {
+      const model = await loadBimModel(viewer, '');
+      addItem(panel, 'BIM', 'Demo Building', () => removeBimModel(viewer, model));
+    } catch (e) { alert('Load failed: ' + e.message); }
+  });
+  bimBtnRow.appendChild(bimDemoBtn);
   bimSec.appendChild(bimBtnRow);
   tab1.appendChild(bimSec);
 
@@ -375,13 +384,8 @@ export function createDataPanel(viewer) {
   const pcSelect = document.createElement('select');
   pcSelect.className = 'input-field';
   const pcFiles = [
-    { label: 'Armadillo (PLY)', path: '/data/三维点云数据/Armadillo.ply' },
-    { label: 'Bunny (PCD)', path: '/data/三维点云数据/bunny.pcd' },
     { label: 'Chair (TXT)', path: '/data/三维点云数据/Chair.txt' },
-    { label: 'Cube (PLY)', path: '/data/三维点云数据/cube.ply' },
     { label: 'Skull (TXT)', path: '/data/三维点云数据/Skull.txt' },
-    { label: 'Sphere (PCD)', path: '/data/三维点云数据/sphere.pcd' },
-    { label: 'Dragon (OBJ) — large!', path: '/data/三维点云数据/dragon.obj' },
   ];
   pcFiles.forEach((f) => {
     const opt = document.createElement('option');

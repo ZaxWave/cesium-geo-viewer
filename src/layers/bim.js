@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 // BIM model loader: supports glTF URL OR generates a demo building if no URL
 export async function loadBimModel(viewer, url, options = {}) {

@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite'
 import cesium from 'vite-plugin-cesium'
+import path from 'path'
 
 export default defineConfig({
   plugins: [cesium()],
-  optimizeDeps: {
-    include: ['cesium'],
+  resolve: {
+    alias: {
+      // Use shim module that re-exports window.Cesium (loaded via <script>)
+      // to avoid Vite pre-bundling the massive Cesium source tree
+      cesium: path.resolve('src/cesium-shim.js'),
+    },
   },
   server: {
     proxy: {

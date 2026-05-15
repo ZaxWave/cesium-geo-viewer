@@ -1,4 +1,4 @@
-import * as Cesium from 'cesium';
+import Cesium from 'cesium';
 
 // glTF / GLB 3D model
 export async function loadGltf(viewer, url, options = {}) {

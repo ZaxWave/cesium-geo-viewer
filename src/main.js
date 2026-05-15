@@ -1,5 +1,5 @@
-import * as Cesium from 'cesium';
-import 'cesium/Build/Cesium/Widgets/widgets.css';
+import Cesium from 'cesium';
+// widgets.css is injected by vite-plugin-cesium via HTML <link>
 import './index.css';
 
 import { CONFIG } from './config.js';
@@ -13,21 +13,20 @@ if (CONFIG.cesiumIonToken) {
   Cesium.Ion.defaultAccessToken = CONFIG.cesiumIonToken;
 }
 
-// 2. 初始化 Viewer
-// 注意：在新版中完全禁用 baseLayerPicker，并使用简单的 EllipsoidTerrainProvider 初始化 [cite: 102, 103]
+// 2. 初始化 Viewer — 完全不自带底图，避免 Cesium Ion 默认请求挂起
 const viewer = new Cesium.Viewer('cesiumContainer', {
   baseLayerPicker: false,
   animation: false,
   timeline: false,
   infoBox: false,
   selectionIndicator: false,
-  terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+  imageryProvider: false,         // 不创建任何默认底图
+  terrainProvider: false,         // 不创建默认地形
   shadows: true,
 });
 
 const scController = viewer.scene.screenSpaceCameraController;
 scController.enableRotate = true;
-
 scController.enableTranslate = true;
 scController.enableZoom = true;
 scController.enableTilt = true;
@@ -45,33 +44,11 @@ scController.maximumPitch = Cesium.Math.toRadians(-1);
   document.body.appendChild(el);
 })();
 
-/**
- * 初始化场景：处理底图和地形的异步加载 [cite: 51, 52, 104, 105]
- */
-async function initializeScene() {
-  try {
-    // 强制清空 Cesium 默认加载的影像图层
-    viewer.imageryLayers.removeAll();
-
-    // 加载默认底图 (高德影像)
-    const defaultLayer = BASE_LAYERS.gaode_img;
-    const imageryProvider = defaultLayer.factory(CONFIG);
-    viewer.imageryLayers.addImageryProvider(imageryProvider);
-
-    // 默认平面地形 — 倾斜模型/点云需要时保持平面，地形由用户手动开启
-    viewer.terrainProvider = createDefaultTerrain();
-
-    console.log("场景初始化完成 (平面地形)");
-  } catch (error) {
-    console.error("场景初始化失败:", error);
-    if (viewer.imageryLayers.length === 0) {
-      viewer.imageryLayers.addImageryProvider(BASE_LAYERS.osm.factory(CONFIG));
-    }
-  }
-}
-
-// 执行初始化
-initializeScene();
+// 直接添加底图，无需 removeAll
+const imageryProvider = BASE_LAYERS.gaode_img.factory(CONFIG);
+viewer.imageryLayers.addImageryProvider(imageryProvider);
+viewer.terrainProvider = createDefaultTerrain();
+console.log("场景初始化完成 (平面地形 + 高德影像)");
 
 // 3. UI 挂载
 const layerSwitcher = createLayerSwitcher(viewer, BASE_LAYERS, 'gaode_img');
