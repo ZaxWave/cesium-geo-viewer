@@ -7,6 +7,10 @@ dist/
 data/
 public/data/
 
+# Reproduction package artifacts
+cesium-geo-viewer-reproduction-*.zip
+reproduction-package-*/
+
 # OS
 .DS_Store
 Thumbs.db

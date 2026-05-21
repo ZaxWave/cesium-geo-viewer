@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir E:\\\\Desktop\\\\时空大数据平台技术\\\\CesiumProject *)",
+      "Bash(curl *)",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(npx vite *)",
+      "Bash(pip install *)",
+      "Bash(python3 -c \" import json,sys r=json.load\\(sys.stdin\\) for a in r.get\\('assets',[]\\): n=a['name'] if 'win' in n.lower\\(\\) or 'IfcConvert' in n: print\\(f'{n} -> {a[\\\\\"browser_download_url\\\\\"]}'\\) \")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python3 *)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:5173/)",
+      "PowerShell(taskkill *)",
+      "Bash(netstat -ano)",
+      "Bash(npm ls *)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
